@@ -4,8 +4,6 @@ const { Server } = require('socket.io')
 
 const rooms = {}
 
-const MIN_PLAYERS = 1
-
 function getLetterForNumber(num) {
   if (num <= 15) return 'B'
   if (num <= 30) return 'I'
@@ -18,32 +16,48 @@ function startGameLoop(io, roomId) {
   const room = rooms[roomId]
   if (!room) return
   room.status = 'PLAYING'
-  room.calledNumbers = []
+  room.calledNumbers = new Set()
 
   room.interval = setInterval(() => {
-    const available = []
-    for (let n = 1; n <= 75; n++) {
-      if (!room.calledNumbers.includes(n)) available.push(n)
-    }
-    if (available.length === 0) {
+    if (room.status !== 'PLAYING') {
       clearInterval(room.interval)
       room.interval = null
       return
     }
+    const available = []
+    for (let n = 1; n <= 75; n++) {
+      if (!room.calledNumbers.has(n)) available.push(n)
+    }
+    if (available.length === 0) {
+      clearInterval(room.interval)
+      room.interval = null
+      room.status = 'ENDED'
+      return
+    }
     const num = available[Math.floor(Math.random() * available.length)]
-    room.calledNumbers.push(num)
+    room.calledNumbers.add(num)
+    let letter = 'B'
+    if (num > 15) letter = 'I'
+    if (num > 30) letter = 'N'
+    if (num > 45) letter = 'G'
+    if (num > 60) letter = 'O'
     io.to(roomId).emit('new_number_called', {
       number: num,
-      letter: getLetterForNumber(num),
-      calledNumbers: room.calledNumbers,
+      letter,
+      calledNumbers: Array.from(room.calledNumbers),
     })
+    if (room.calledNumbers.size === 75) {
+      clearInterval(room.interval)
+      room.interval = null
+      room.status = 'ENDED'
+    }
   }, 3000)
 }
 
 function startCountdown(io, roomId) {
   const room = rooms[roomId]
   if (!room || room.status !== 'WAITING') return
-  if (room.players.size < MIN_PLAYERS) return
+  if (room.players.size < 1) return
 
   room.status = 'COUNTDOWN'
   let timeLeft = 5
@@ -56,6 +70,8 @@ function startCountdown(io, roomId) {
     if (timeLeft <= 0) {
       clearInterval(room.countdown)
       room.countdown = null
+      room.status = 'PLAYING'
+      io.to(roomId).emit('game_started')
       startGameLoop(io, roomId)
     }
   }, 1000)
@@ -72,10 +88,11 @@ function initGameHandler(io) {
           rooms[roomId] = {
             id: roomId,
             players: new Map(),
-            calledNumbers: [],
+            calledNumbers: new Set(),
             status: 'WAITING',
             interval: null,
             countdown: null,
+            stake: null,
           }
         }
 
@@ -88,17 +105,16 @@ function initGameHandler(io) {
             if (dbCards && dbCards.length) {
               cards = dbCards.map((c) => c.matrix)
             }
-          } catch (e) {
-            // Fall back to provided cards if DB lookup fails
-          }
+          } catch (e) {}
         }
 
         room.players.set(socket.id, { userId, cards, socketId: socket.id })
         socket.join(roomId)
 
-        io.to(roomId).emit('room_update', { playerCount: room.players.size })
+        const playerCount = room.players.size
+        io.to(roomId).emit('room_update', { playerCount, players: playerCount, stake: room.stake })
 
-        if (room.players.size >= MIN_PLAYERS && room.status === 'WAITING') {
+        if (playerCount >= 1 && room.status === 'WAITING') {
           startCountdown(io, roomId)
         }
       } catch (err) {
@@ -110,7 +126,7 @@ function initGameHandler(io) {
       const room = rooms[roomId]
       if (!room) return
       if (room.status !== 'WAITING') return
-      if (room.players.size < MIN_PLAYERS) return
+      if (room.players.size < 1) return
       startCountdown(io, roomId)
     })
 
@@ -122,24 +138,15 @@ function initGameHandler(io) {
       const cardToCheck = card || (player && player.cards && player.cards[0])
       if (!cardToCheck) return
 
-      const result = validateBingo(cardToCheck, room.calledNumbers)
+      const result = validateBingo(cardToCheck, Array.from(room.calledNumbers))
 
       if (result.isValid) {
         room.status = 'ENDED'
-        if (room.interval) {
-          clearInterval(room.interval)
-          room.interval = null
-        }
-        if (room.countdown) {
-          clearInterval(room.countdown)
-          room.countdown = null
-        }
+        if (room.interval) { clearInterval(room.interval); room.interval = null }
+        if (room.countdown) { clearInterval(room.countdown); room.countdown = null }
 
         io.to(roomId).emit('game_over', {
-          winner: {
-            userId: player ? player.userId : null,
-            socketId: socket.id,
-          },
+          winner: { userId: player ? player.userId : null, socketId: socket.id },
           pattern: result.pattern,
         })
       } else {
@@ -152,7 +159,7 @@ function initGameHandler(io) {
         const room = rooms[roomId]
         if (room.players.has(socket.id)) {
           room.players.delete(socket.id)
-          io.to(roomId).emit('room_update', { playerCount: room.players.size })
+          io.to(roomId).emit('room_update', { playerCount: room.players.size, players: room.players.size })
         }
       }
     })
@@ -161,11 +168,7 @@ function initGameHandler(io) {
 
 function setupSocket(server) {
   const io = new Server(server, {
-    cors: {
-      origin: true,
-      methods: ['GET', 'POST'],
-      credentials: true,
-    },
+    cors: { origin: true, methods: ['GET', 'POST'], credentials: true },
   })
   initGameHandler(io)
   return io
