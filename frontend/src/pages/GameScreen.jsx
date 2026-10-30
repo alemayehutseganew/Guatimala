@@ -13,6 +13,7 @@ export default function GameScreen() {
 
   const [socket, setSocket] = useState(null)
   const [calledNumbers, setCalledNumbers] = useState([])
+  const [countdown, setCountdown] = useState(5)
   const [currentBall, setCurrentBall] = useState(null)
   const [previousBalls, setPreviousBalls] = useState([])
   const [playerCount, setPlayerCount] = useState(0)
@@ -56,6 +57,10 @@ export default function GameScreen() {
       if (data.playerCount >= 2) {
         s.emit('start_game', { roomId })
       }
+    })
+
+    s.on('countdown_tick', (n) => {
+      setCountdown(n)
     })
 
     s.on('new_number_called', (data) => {
@@ -123,7 +128,7 @@ export default function GameScreen() {
       <div className="flex gap-2 mb-2">
         <div className="flex-1 bg-white rounded-lg flex items-center justify-center h-24">
           <div className="w-20 h-20 rounded-full bg-red-500 text-white flex items-center justify-center text-3xl font-bold">
-            {currentBall || '-'}
+            {countdown > 0 && !currentBall ? countdown : (currentBall || '-')}
           </div>
         </div>
         <div className="flex gap-1 items-center overflow-x-auto">
@@ -136,14 +141,25 @@ export default function GameScreen() {
       </div>
       <div className="flex gap-2 flex-1">
         <div className="flex-1 grid grid-cols-5 gap-1 content-start">
-          {Array.from({ length: 75 }, (_, i) => i + 1).map((n) => (
-            <div
-              key={n}
-              className={`bingo-3d-box aspect-square flex items-center justify-center text-xs font-bold ${
-                calledNumbers.includes(n) ? 'bg-red-500 text-white' : 'text-[#112A46]'
-              }`}
-            >
-              {n}
+          {[
+            { label: 'B', nums: Array.from({ length: 15 }, (_, i) => i + 1) },
+            { label: 'I', nums: Array.from({ length: 15 }, (_, i) => i + 16) },
+            { label: 'N', nums: Array.from({ length: 15 }, (_, i) => i + 31) },
+            { label: 'G', nums: Array.from({ length: 15 }, (_, i) => i + 46) },
+            { label: 'O', nums: Array.from({ length: 15 }, (_, i) => i + 61) },
+          ].map((col) => (
+            <div key={col.label} className="flex flex-col gap-1">
+              <div className="text-center font-bold text-yellow-400 text-sm">{col.label}</div>
+              {col.nums.map((n) => (
+                <div
+                  key={n}
+                  className={`bingo-3d-box aspect-square flex items-center justify-center text-xs font-bold ${
+                    calledNumbers.includes(n) ? 'bg-red-500 text-white' : 'text-[#112A46]'
+                  }`}
+                >
+                  {n}
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -164,10 +180,14 @@ export default function GameScreen() {
                       key={`${rIdx}-${cIdx}`}
                       onClick={() => daub(val)}
                       className={`bingo-3d-box aspect-square flex items-center justify-center text-sm font-bold ${
-                        isMarked ? 'bg-green-500 text-white' : 'text-[#112A46]'
+                        (rIdx === 2 && cIdx === 2)
+                          ? 'bg-blue-500 text-white'
+                          : isMarked
+                          ? 'bg-green-500 text-white'
+                          : 'text-[#112A46]'
                       }`}
                     >
-                      {val === 0 || val === 'FREE' ? 'FREE' : val}
+                      {rIdx === 2 && cIdx === 2 ? 'F' : val}
                     </button>
                   )
                 })
