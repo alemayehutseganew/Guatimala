@@ -2,6 +2,8 @@ const db = require('../db')
 const { validateBingo } = require('../utils/patternValidator')
 const { Server } = require('socket.io')
 
+const rooms = {}
+
 function getLetterForNumber(num) {
   if (num <= 15) return 'B'
   if (num <= 30) return 'I'
