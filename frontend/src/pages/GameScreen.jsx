@@ -14,6 +14,7 @@ export default function GameScreen() {
   const [socket, setSocket] = useState(null)
   const [calledNumbers, setCalledNumbers] = useState([])
   const [countdown, setCountdown] = useState(5)
+  const [currentLetter, setCurrentLetter] = useState('')
   const [currentBall, setCurrentBall] = useState(null)
   const [previousBalls, setPreviousBalls] = useState([])
   const [playerCount, setPlayerCount] = useState(0)
@@ -65,6 +66,7 @@ export default function GameScreen() {
 
     s.on('new_number_called', (data) => {
       const num = data.number
+      setCurrentLetter(data.letter || '')
       setCurrentBall(num)
       setCalledNumbers(data.calledNumbers || [])
       setPreviousBalls((prev) => [num, ...prev].slice(0, 8))
@@ -126,9 +128,12 @@ export default function GameScreen() {
       </div>
 
       <div className="flex gap-2 mb-2">
-        <div className="flex-1 bg-white rounded-lg flex items-center justify-center h-24">
-          <div className="w-20 h-20 rounded-full bg-red-500 text-white flex items-center justify-center text-3xl font-bold">
-            {countdown > 0 && !currentBall ? countdown : (currentBall || '-')}
+        <div className="flex-1 bg-white rounded-lg flex items-center justify-center h-24 border-4 border-red-500">
+          <div className="flex flex-col items-center">
+            <span className="text-red-500 text-2xl font-bold">{currentLetter}</span>
+            <span className="text-[#112A46] text-4xl font-bold">
+              {countdown > 0 && !currentBall ? countdown : (currentBall || '-')}
+            </span>
           </div>
         </div>
         <div className="flex gap-1 items-center overflow-x-auto">
@@ -183,7 +188,7 @@ export default function GameScreen() {
                         (rIdx === 2 && cIdx === 2)
                           ? 'bg-blue-500 text-white'
                           : isMarked
-                          ? 'bg-green-500 text-white'
+                          ? 'bg-green-500 text-white border-b-0 translate-y-1'
                           : 'text-[#112A46]'
                       }`}
                     >

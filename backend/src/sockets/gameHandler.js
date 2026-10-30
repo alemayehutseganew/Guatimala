@@ -2,7 +2,13 @@ const db = require('../db')
 const { validateBingo } = require('../utils/patternValidator')
 const { Server } = require('socket.io')
 
-const rooms = {}
+function getLetterForNumber(num) {
+  if (num <= 15) return 'B'
+  if (num <= 30) return 'I'
+  if (num <= 45) return 'N'
+  if (num <= 60) return 'G'
+  return 'O'
+}
 
 function initGameHandler(io) {
   io.on('connection', (socket) => {
@@ -79,6 +85,7 @@ function initGameHandler(io) {
             room.calledNumbers.push(num)
             io.to(roomId).emit('new_number_called', {
               number: num,
+              letter: getLetterForNumber(num),
               calledNumbers: room.calledNumbers,
             })
           }, 3000)
