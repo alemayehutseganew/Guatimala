@@ -73,6 +73,7 @@ const GameScreen = () => {
       setCurrentBall({ number, letter });
       setCalledNumbers(prev => [...prev, number]);
       setCalledHistory(prev => [...prev.slice(-4), { number, letter }]);
+      if (soundEnabled) speakNumber(number, letter);
     });
 
     socket.on('game_over', (data) => {
@@ -90,6 +91,17 @@ const GameScreen = () => {
       socket.off('game_over');
     };
   }, [socket, roomId, userId, stake]);
+
+  const speakNumber = (number, letter) => {
+    if (!window.speechSynthesis) return
+    window.speechSynthesis.cancel()
+    const text = `${letter} ${number}`
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = 'am-ET'
+    utterance.rate = 0.9
+    utterance.pitch = 1
+    window.speechSynthesis.speak(utterance)
+  }
 
   const handleDaub = (num) => {
     if (!calledNumbers.includes(num)) return;
