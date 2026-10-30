@@ -9,7 +9,7 @@ export default function GameScreen() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { i18n } = useTranslation()
-  const roomId = searchParams.get('roomId') || 'default'
+  const roomId = searchParams.get('roomId') || 'room_10'
 
   const [socket, setSocket] = useState(null)
   const [calledNumbers, setCalledNumbers] = useState([])

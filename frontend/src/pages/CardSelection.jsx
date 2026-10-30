@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-const DEFAULT_ROOM_ID = 'default'
+const DEFAULT_ROOM_ID = 'room_10'
 const MAX_SELECTION = 2
 
 export default function CardSelection() {

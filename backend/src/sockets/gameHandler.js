@@ -132,7 +132,13 @@ function initGameHandler(io) {
 }
 
 function setupSocket(server) {
-  const io = new Server(server, { cors: { origin: '*' } })
+  const io = new Server(server, {
+    cors: {
+      origin: true,
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
+  })
   initGameHandler(io)
   return io
 }
