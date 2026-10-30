@@ -71,6 +71,7 @@ function initGameHandler(io) {
             status: 'WAITING',
             interval: null,
             countdown: null,
+            gameInterval: null,
             stake: null,
           }
         }
@@ -113,9 +114,36 @@ function initGameHandler(io) {
                 return
               }
 
-              room.status = 'PLAYING'
+              rooms[roomId].status = 'PLAYING'
               io.to(roomId).emit('game_started')
-              startGameLoop(io, roomId)
+
+              rooms[roomId].gameInterval = setInterval(() => {
+                if (rooms[roomId].status !== 'PLAYING') {
+                  clearInterval(rooms[roomId].gameInterval)
+                  return
+                }
+
+                let number
+                do {
+                  number = Math.floor(Math.random() * 75) + 1
+                } while (rooms[roomId].calledNumbers.has(number))
+
+                rooms[roomId].calledNumbers.add(number)
+
+                let letter = 'B'
+                if (number > 15) letter = 'I'
+                if (number > 30) letter = 'N'
+                if (number > 45) letter = 'G'
+                if (number > 60) letter = 'O'
+
+                console.log(`[Game] Calling number: ${letter} ${num}`)
+                io.to(roomId).emit('new_number_called', { number, letter })
+
+                if (rooms[roomId].calledNumbers.size === 75) {
+                  clearInterval(rooms[roomId].gameInterval)
+                  rooms[roomId].status = 'ENDED'
+                }
+              }, 3000)
             }
           }, 1000)
 
@@ -153,7 +181,39 @@ function initGameHandler(io) {
 
           room.status = 'PLAYING'
           io.to(roomId).emit('game_started')
-          startGameLoop(io, roomId)
+
+          room.gameInterval = setInterval(() => {
+            if (room.status !== 'PLAYING') {
+              clearInterval(room.gameInterval)
+              room.gameInterval = null
+              return
+            }
+
+            const available = []
+            for (let n = 1; n <= 75; n++) {
+              if (!room.calledNumbers.has(n)) available.push(n)
+            }
+            if (available.length === 0) {
+              clearInterval(room.gameInterval)
+              room.gameInterval = null
+              room.status = 'ENDED'
+              return
+            }
+            const num = available[Math.floor(Math.random() * available.length)]
+            room.calledNumbers.add(num)
+            let letter = 'B'
+            if (num > 15) letter = 'I'
+            if (num > 30) letter = 'N'
+            if (num > 45) letter = 'G'
+            if (num > 60) letter = 'O'
+            console.log(`[Game] Calling number: ${letter} ${num}`)
+            io.to(roomId).emit('new_number_called', { number: num, letter, calledNumbers: Array.from(room.calledNumbers) })
+            if (room.calledNumbers.size === 75) {
+              clearInterval(room.gameInterval)
+              room.gameInterval = null
+              room.status = 'ENDED'
+            }
+          }, 3000)
         }
       }, 1000)
 
@@ -190,7 +250,7 @@ function initGameHandler(io) {
           if (rooms[roomId]) {
             rooms[roomId].status = 'ENDED'
             rooms[roomId].winner = userId
-            if (rooms[roomId].interval) { clearInterval(rooms[roomId].interval); rooms[roomId].interval = null }
+            if (rooms[roomId].gameInterval) { clearInterval(rooms[roomId].gameInterval); rooms[roomId].gameInterval = null }
             if (rooms[roomId].countdown) { clearInterval(rooms[roomId].countdown); rooms[roomId].countdown = null }
           }
 
