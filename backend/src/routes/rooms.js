@@ -1,38 +1,7 @@
 const express = require('express')
 const router = express.Router()
-
-function generateCardMatrix(cardNumber) {
-  // Deterministic-ish bingo card based on card number
-  const seed = cardNumber
-  const rand = (min, max, i) => {
-    // simple pseudo-random
-    const x = Math.sin(seed * 9301 + i * 49297 + 233280) * 10000
-    return Math.floor((x - Math.floor(x)) * (max - min + 1)) + min
-  }
-
-  const ranges = [
-    [1, 15],
-    [16, 30],
-    [31, 45],
-    [46, 60],
-    [61, 75],
-  ]
-
-  const matrix = []
-  for (let row = 0; row < 5; row++) {
-    const r = []
-    for (let col = 0; col < 5; col++) {
-      if (row === 2 && col === 2) {
-        r.push(0) // FREE
-      } else {
-        const [min, max] = ranges[col]
-        r.push(rand(min, max, row * 5 + col))
-      }
-    }
-    matrix.push(r)
-  }
-  return matrix
-}
+const db = require('../db')
+const { generateCardMatrix } = require('../utils/roomCardGenerator')
 
 // GET /api/rooms/:roomId/cards
 router.get('/:roomId/cards', (req, res) => {
@@ -48,4 +17,58 @@ router.get('/:roomId/cards', (req, res) => {
   res.json(cards)
 })
 
+// POST /api/rooms/:id/select-cards
+// Body: { userId, cardIds: [1,2,...] }
+router.post('/:id/select-cards', async (req, res) => {
+  try {
+    const roomId = req.params.id
+    const { userId, cardIds } = req.body || {}
+    if (!userId || !Array.isArray(cardIds)) {
+      return res.status(400).json({ error: 'userId and cardIds are required' })
+    }
+
+    // Remove any previous selections for this user/room
+    await db('room_card_selections').where({ room_id: roomId, user_id: userId }).del()
+
+    const rows = cardIds.map((cardId) => ({
+      room_id: roomId,
+      user_id: userId,
+      card_number: cardId,
+      matrix: JSON.stringify(generateCardMatrix(cardId)),
+    }))
+
+    if (rows.length) {
+      await db('room_card_selections').insert(rows)
+    }
+
+    return res.json({ success: true, count: rows.length })
+  } catch (err) {
+    console.error('select-cards error:', err)
+    return res.status(500).json({ error: 'server error' })
+  }
+})
+
+// GET /api/rooms/:id/my-cards?userId=...
+router.get('/:id/my-cards', async (req, res) => {
+  try {
+    const roomId = req.params.id
+    const userId = req.query.userId
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' })
+    }
+    const rows = await db('room_card_selections')
+      .where({ room_id: roomId, user_id: userId })
+      .select('card_number', 'matrix')
+    const cards = rows.map((r) => ({
+      card_number: r.card_number,
+      matrix: typeof r.matrix === 'string' ? JSON.parse(r.matrix) : r.matrix,
+    }))
+    return res.json(cards)
+  } catch (err) {
+    console.error('my-cards error:', err)
+    return res.status(500).json({ error: 'server error' })
+  }
+})
+
 module.exports = router
+

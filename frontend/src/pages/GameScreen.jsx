@@ -32,15 +32,18 @@ export default function GameScreen() {
 
     let selectedIds = []
     try {
-      selectedIds = JSON.parse(localStorage.getItem('selectedCards') || '[]')
+      selectedIds = JSON.parse(localStorage.getItem('selectedCardIds') || localStorage.getItem('selectedCards') || '[]')
     } catch (e) {}
     selectedRef.current = selectedIds
 
-    fetch(`${API_BASE}/api/rooms/${roomId}/cards`)
+    const userId = localStorage.getItem('dbUserId') || 1
+    fetch(`${API_BASE}/api/rooms/${roomId}/my-cards?userId=${userId}`)
       .then((r) => r.json())
       .then((cards) => {
-        const found = cards.find((c) => selectedIds.includes(c.id))
-        if (found) setCard(found)
+        if (Array.isArray(cards) && cards.length) {
+          // use first selected card's matrix
+          setCard({ matrix: cards[0].matrix, card_number: cards[0].card_number })
+        }
       })
       .catch(() => {})
 

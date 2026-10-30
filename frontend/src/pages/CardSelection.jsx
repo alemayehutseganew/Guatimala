@@ -45,10 +45,21 @@ export default function CardSelection() {
     })
   }
 
-  const confirmCards = () => {
+  const handleConfirmCards = async () => {
+    const userId = localStorage.getItem('dbUserId') || 1
+    try {
+      await fetch(`${API_BASE}/api/rooms/${DEFAULT_ROOM_ID}/select-cards`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: Number(userId), cardIds: selected }),
+      })
+    } catch (e) {
+      console.error('Failed to save selected cards', e)
+    }
     localStorage.setItem('selectedCards', JSON.stringify(selected))
+    localStorage.setItem('selectedCardIds', JSON.stringify(selected))
     localStorage.setItem('stake', stake)
-    navigate(`/game?roomId=${DEFAULT_ROOM_ID}`)
+    navigate(`/game?stake=${stake}&roomId=${DEFAULT_ROOM_ID}`)
   }
 
   if (loading) {
@@ -106,7 +117,7 @@ export default function CardSelection() {
 
       {/* Confirm */}
       <button
-        onClick={confirmCards}
+        onClick={handleConfirmCards}
         disabled={selected.length === 0}
         className="w-full bg-green-500 text-white font-bold py-3 rounded-lg disabled:opacity-50"
       >
@@ -140,12 +151,16 @@ export default function CardSelection() {
             </div>
             <button
               onClick={() => {
-                toggleSelect(previewCard)
-                setPreviewCard(null)
+                if (selected.includes(previewCard.id)) {
+                  handleConfirmCards()
+                } else {
+                  toggleSelect(previewCard)
+                  setPreviewCard(null)
+                }
               }}
               className="w-full mt-3 bg-[#112A46] text-white font-bold py-2 rounded"
             >
-              {selected.includes(previewCard.id) ? 'Deselect' : 'Select'}
+              {selected.includes(previewCard.id) ? 'Confirm Cards' : 'Select Card'}
             </button>
           </div>
         </div>
