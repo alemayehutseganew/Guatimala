@@ -174,7 +174,9 @@ const GameScreen = () => {
         </div>
 
         {/* RIGHT COLUMN: Player Card */}
-        <div className="w-1/2 flex flex-col justify-between">
+        <div className="w-1/2 flex flex-col justify-center items-center gap-4 py-10">
+          <div className="w-full flex flex-col items-center gap-4">
+
           {cardsData && cardsData.length > 0 ? (
             <div className="bg-[#4a5568] p-3 rounded-xl shadow-lg">
               <div className="text-center font-bold text-lg mb-2 text-gray-200">
@@ -215,10 +217,12 @@ const GameScreen = () => {
 
           <button 
             onClick={handleBingoClick}
-            className="w-full mt-4 bg-yellow-500 text-[#112A46] font-extrabold text-2xl py-4 rounded-xl shadow-[0_6px_0_#b45309] active:shadow-none active:translate-y-1 transition-all"
+            className="w-full max-w-sm bg-yellow-500 text-[#112A46] font-extrabold text-2xl py-4 rounded-xl shadow-lg"
           >
             BINGO
           </button>
+          </div>
+
         </div>
       </div>
       
