@@ -28,7 +28,6 @@ export default function Lobby() {
   const { t, i18n } = useTranslation()
 
   const [walletBalance, setWalletBalance] = useState(0)
-  const [activeRooms, setActiveRooms] = useState({})
   const [menuOpen, setMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
 
@@ -41,19 +40,7 @@ export default function Lobby() {
         if (data) setWalletBalance(Number(data.demo_wallet_balance ?? data.wallet_balance ?? 0))
       })
       .catch(() => {})
-    fetchActiveRooms()
   }, [])
-
-  const fetchActiveRooms = () => {
-    fetch(`${API_BASE}/api/rooms`)
-      .then((r) => (r.ok ? r.json() : { rooms: [] }))
-      .then((data) => {
-        const obj = {}
-        ;(data.rooms || []).forEach((r) => { obj[r.stake_amount] = true })
-        setActiveRooms(obj)
-      })
-      .catch(() => {})
-  }
 
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language === 'en' ? 'am' : 'en')
@@ -84,7 +71,6 @@ export default function Lobby() {
     }
   }
 
-  const getActiveRoom = (stake) => activeRooms.find((r) => r.stake_amount === stake)
 
   return (
     <div className="min-h-screen bg-[#112A46] text-white flex flex-col items-center px-4 py-4">
@@ -154,48 +140,23 @@ export default function Lobby() {
       <h1 className="w-full max-w-md text-2xl font-bold mb-4">{t('chooseStake')}</h1>
 
       <div className="w-full max-w-md bg-[#0d2238] rounded-lg overflow-hidden">
-        <div className="grid grid-cols-4 text-center text-sm font-semibold bg-[#0a1a2e] py-2">
+        <div className="grid grid-cols-2 text-center text-sm font-semibold bg-[#0a1a2e] py-2">
           <div>{t('stake')}</div>
-          <div>{t('active')}</div>
-          <div>{t('possibleWin')}</div>
           <div>{t('join')}</div>
         </div>
-        {stakes.map((stake, idx) => {
-          const isActive = activeRooms[stake] ? true : false;
-          const possibleWin = isActive ? (stake * 1.5).toFixed(2) : '-';
-
-          return (
-            <div key={stake} className="relative grid grid-cols-4 text-center items-center py-2 border-b border-[#1e3a5f] last:border-b-0">
-              <div className="text-green-400 font-bold">{stake}</div>
-              
-              <div className="text-gray-300 text-sm">
-                {isActive ? <span className="text-green-500 font-bold">Yes</span> : 'None'}
-              </div>
-              
-              <div className="flex items-center justify-center gap-1 text-gray-300 text-sm">
-                {isActive ? (
-                  <span className="text-yellow-400 font-bold">{possibleWin}</span>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                    </svg>
-                    -
-                  </>
-                )}
-              </div>
-              
-              <div>
-                <button
-                  onClick={() => handleJoin(stake)}
-                  className="bg-white text-[#112A46] text-xs font-bold px-3 py-1 rounded"
-                >
-                  {t('join')} &gt;&gt;
-                </button>
-              </div>
+        {stakes.map((stake) => (
+          <div key={stake} className="grid grid-cols-2 text-center items-center py-3 border-b border-[#1e3a5f] last:border-b-0">
+            <div className="text-green-400 font-bold text-lg">{stake}</div>
+            <div className="flex justify-center">
+              <button
+                onClick={() => handleJoin(stake)}
+                className="bg-white text-[#112A46] text-xs font-bold px-4 py-1.5 rounded shadow"
+              >
+                {t('join')} &gt;&gt;
+              </button>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   )
