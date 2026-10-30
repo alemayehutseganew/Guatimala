@@ -2,15 +2,20 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-const DEFAULT_ROOM_ID = 'room_10'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 const MAX_SELECTION = 2
 
 export default function CardSelection() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { i18n } = useTranslation()
+  const roomId = searchParams.get('roomId')
   const stake = searchParams.get('stake') || '10'
+
+  if (!roomId) {
+    navigate('/')
+    return null
+  }
 
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(true)
@@ -21,7 +26,7 @@ export default function CardSelection() {
     let cancelled = false
     async function load() {
       try {
-        const res = await fetch(`${API_BASE}/api/rooms/${DEFAULT_ROOM_ID}/cards`)
+        const res = await fetch(`${API_BASE}/api/rooms/${roomId}/cards`)
         const data = await res.json()
         if (!cancelled) setCards(data)
       } catch (e) {
@@ -48,7 +53,7 @@ export default function CardSelection() {
   const handleConfirmCards = async () => {
     const userId = localStorage.getItem('dbUserId') || 1
     try {
-      await fetch(`${API_BASE}/api/rooms/${DEFAULT_ROOM_ID}/select-cards`, {
+      await fetch(`${API_BASE}/api/rooms/${roomId}/select-cards`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: Number(userId), cardIds: selected }),
@@ -59,7 +64,7 @@ export default function CardSelection() {
     localStorage.setItem('selectedCards', JSON.stringify(selected))
     localStorage.setItem('selectedCardIds', JSON.stringify(selected))
     localStorage.setItem('stake', stake)
-    navigate(`/game?stake=${stake}&roomId=${DEFAULT_ROOM_ID}`)
+    navigate(`/game?stake=${stake}&roomId=${roomId}`)
   }
 
   if (loading) {

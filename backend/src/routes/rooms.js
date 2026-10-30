@@ -3,6 +3,33 @@ const router = express.Router()
 const db = require('../db')
 const { generateCardMatrix } = require('../utils/roomCardGenerator')
 
+// POST /api/rooms/join
+// Body: { stake }
+router.post('/join', async (req, res) => {
+  try {
+    const { stake } = req.body || {}
+    if (stake === undefined || stake === null) {
+      return res.status(400).json({ error: 'stake is required' })
+    }
+
+    // Look for a waiting room with this stake
+    let room = await db('rooms').where({ stake_amount: stake, status: 'WAITING' }).first()
+
+    // If no room exists, create one
+    if (!room) {
+      const [newRoom] = await db('rooms')
+        .insert({ stake_amount: stake, status: 'WAITING' })
+        .returning('*')
+      room = newRoom
+    }
+
+    return res.json({ roomId: room.id, stake: room.stake_amount })
+  } catch (err) {
+    console.error('join room error:', err)
+    return res.status(500).json({ error: err.message })
+  }
+})
+
 // GET /api/rooms/:roomId/cards
 router.get('/:roomId/cards', (req, res) => {
   const cards = []

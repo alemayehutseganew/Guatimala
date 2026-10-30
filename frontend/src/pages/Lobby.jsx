@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 const stakes = [10, 20, 30, 50, 80, 100, 150, 200]
 
 export default function Lobby() {
@@ -9,6 +10,22 @@ export default function Lobby() {
 
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language === 'en' ? 'am' : 'en')
+  }
+
+  const handleJoin = async (stake) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/rooms/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stake }),
+      })
+      const data = await res.json()
+      if (data.roomId) {
+        navigate(`/select-cards?roomId=${data.roomId}&stake=${stake}`)
+      }
+    } catch (e) {
+      console.error('Join room failed', e)
+    }
   }
 
   return (
@@ -84,7 +101,7 @@ export default function Lobby() {
             </div>
             <div>
               <button
-                onClick={() => navigate(`/select-cards?stake=${stake}`)}
+                onClick={() => handleJoin(stake)}
                 className="bg-white text-[#112A46] text-xs font-bold px-3 py-1 rounded"
               >
                 {t('join')} &gt;&gt;
