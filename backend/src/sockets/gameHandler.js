@@ -54,29 +54,6 @@ function startGameLoop(io, roomId) {
   }, 3000)
 }
 
-function startCountdown(io, roomId) {
-  const room = rooms[roomId]
-  if (!room || room.status !== 'WAITING') return
-  if (room.players.size < 1) return
-
-  room.status = 'COUNTDOWN'
-  let timeLeft = 5
-  io.to(roomId).emit('countdown_tick', { timeLeft })
-
-  room.countdown = setInterval(() => {
-    timeLeft -= 1
-    io.to(roomId).emit('countdown_tick', { timeLeft })
-
-    if (timeLeft <= 0) {
-      clearInterval(room.countdown)
-      room.countdown = null
-      room.status = 'PLAYING'
-      io.to(roomId).emit('game_started')
-      startGameLoop(io, roomId)
-    }
-  }, 1000)
-}
-
 function initGameHandler(io) {
   io.on('connection', (socket) => {
     socket.on('join_room', async (payload = {}) => {
@@ -87,7 +64,7 @@ function initGameHandler(io) {
         if (!rooms[roomId]) {
           rooms[roomId] = {
             id: roomId,
-            players: new Map(),
+            players: {},
             calledNumbers: new Set(),
             status: 'WAITING',
             interval: null,
@@ -108,14 +85,31 @@ function initGameHandler(io) {
           } catch (e) {}
         }
 
-        room.players.set(socket.id, { userId, cards, socketId: socket.id })
+        room.players[socket.id] = { userId, cards, socketId: socket.id }
         socket.join(roomId)
 
-        const playerCount = room.players.size
+        const playerCount = Object.keys(room.players).length
         io.to(roomId).emit('room_update', { playerCount, players: playerCount, stake: room.stake })
 
         if (playerCount >= 1 && room.status === 'WAITING') {
-          startCountdown(io, roomId)
+          room.status = 'COUNTDOWN'
+          let timeLeft = 5
+          io.to(roomId).emit('countdown_tick', { timeLeft })
+
+          const countdownInterval = setInterval(() => {
+            timeLeft -= 1
+            io.to(roomId).emit('countdown_tick', { timeLeft })
+
+            if (timeLeft <= 0) {
+              clearInterval(countdownInterval)
+              room.countdown = null
+              room.status = 'PLAYING'
+              io.to(roomId).emit('game_started')
+              startGameLoop(io, roomId)
+            }
+          }, 1000)
+
+          room.countdown = countdownInterval
         }
       } catch (err) {
         console.error('join_room error:', err)
@@ -126,15 +120,33 @@ function initGameHandler(io) {
       const room = rooms[roomId]
       if (!room) return
       if (room.status !== 'WAITING') return
-      if (room.players.size < 1) return
-      startCountdown(io, roomId)
+      if (Object.keys(room.players).length < 1) return
+
+      room.status = 'COUNTDOWN'
+      let timeLeft = 5
+      io.to(roomId).emit('countdown_tick', { timeLeft })
+
+      const countdownInterval = setInterval(() => {
+        timeLeft -= 1
+        io.to(roomId).emit('countdown_tick', { timeLeft })
+
+        if (timeLeft <= 0) {
+          clearInterval(countdownInterval)
+          room.countdown = null
+          room.status = 'PLAYING'
+          io.to(roomId).emit('game_started')
+          startGameLoop(io, roomId)
+        }
+      }, 1000)
+
+      room.countdown = countdownInterval
     })
 
     socket.on('claim_bingo', ({ roomId, card } = {}) => {
       const room = rooms[roomId]
       if (!room || room.status !== 'PLAYING') return
 
-      const player = room.players.get(socket.id)
+      const player = room.players[socket.id]
       const cardToCheck = card || (player && player.cards && player.cards[0])
       if (!cardToCheck) return
 
@@ -170,9 +182,9 @@ function initGameHandler(io) {
     socket.on('disconnect', () => {
       for (const roomId in rooms) {
         const room = rooms[roomId]
-        if (room.players.has(socket.id)) {
-          room.players.delete(socket.id)
-          io.to(roomId).emit('room_update', { playerCount: room.players.size, players: room.players.size })
+        if (room.players[socket.id]) {
+          delete room.players[socket.id]
+          io.to(roomId).emit('room_update', { playerCount: Object.keys(room.players).length, players: Object.keys(room.players).length })
         }
       }
     })
@@ -187,4 +199,4 @@ function setupSocket(server) {
   return io
 }
 
-module.exports = { initGameHandler, setupSocket, rooms, startGameLoop, startCountdown }
+module.exports = { initGameHandler, setupSocket, rooms, startGameLoop }
