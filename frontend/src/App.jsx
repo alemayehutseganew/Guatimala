@@ -4,6 +4,9 @@ import Lobby from './pages/Lobby'
 import CardSelection from './pages/CardSelection'
 import GameScreen from './pages/GameScreen'
 import Wallet from './pages/Wallet'
+import Settings from './pages/Settings'
+import GameHistory from './pages/GameHistory'
+import Leaderboard from './pages/Leaderboard'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
@@ -40,6 +43,9 @@ export default function App() {
         <Route path="/select-cards" element={<CardSelection />} />
         <Route path="/game" element={<GameScreen />} />
         <Route path="/wallet" element={<Wallet />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/history" element={<GameHistory />} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
       </Routes>
     </BrowserRouter>
   )

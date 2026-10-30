@@ -77,7 +77,11 @@ export default function Lobby() {
 
   const handleLogout = () => {
     localStorage.clear()
-    window.location.reload()
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.close()
+    } else {
+      window.location.reload()
+    }
   }
 
   const getActiveRoom = (stake) => activeRooms.find((r) => r.stake_amount === stake)
@@ -89,9 +93,9 @@ export default function Lobby() {
           <div className="w-64 bg-[#0d2238] h-full p-6 shadow-2xl">
             <button onClick={() => setMenuOpen(false)} className="text-white text-2xl mb-6">✕</button>
             <ul className="space-y-4">
-              <li><button className="text-white w-full text-left">Game History</button></li>
-              <li><button className="text-white w-full text-left">Leaderboard</button></li>
-              <li><button className="text-white w-full text-left">Settings</button></li>
+              <li><button onClick={() => navigate('/history')} className="text-white w-full text-left">Game History</button></li>
+              <li><button onClick={() => navigate('/leaderboard')} className="text-white w-full text-left">Leaderboard</button></li>
+              <li><button onClick={() => navigate('/settings')} className="text-white w-full text-left">Settings</button></li>
               <li><button onClick={handleLogout} className="text-red-400 w-full text-left">Logout</button></li>
             </ul>
           </div>
