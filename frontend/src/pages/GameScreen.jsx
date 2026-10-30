@@ -1,5 +1,6 @@
 import { useEffect, useState, Fragment } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { io } from 'socket.io-client';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -23,6 +24,8 @@ const GameScreen = () => {
   const stake = parseInt(searchParams.get('stake')) || 10;
   const userId = localStorage.getItem('dbUserId');
 
+  const { i18n } = useTranslation();
+
   const [calledNumbers, setCalledNumbers] = useState([]);
   const [currentBall, setCurrentBall] = useState(null);
   const [calledHistory, setCalledHistory] = useState([]);
@@ -32,6 +35,7 @@ const GameScreen = () => {
   const [countdown, setCountdown] = useState(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [toast, setToast] = useState('');
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Fetch Cards from Backend
   useEffect(() => {
@@ -110,9 +114,21 @@ const GameScreen = () => {
           <div className="bg-[#2A4B6E] px-3 py-1 rounded">Players: {playersCount}</div>
         </div>
         <div className="flex gap-1 text-xs">
-          <button className="bg-[#2A4B6E] px-3 py-1 rounded">AM</button>
-          <button className="bg-[#2A4B6E] px-3 py-1 rounded">SND</button>
-          <button className="bg-[#2A4B6E] px-3 py-1 rounded">Auto</button>
+          {/* AM Button */}
+          <button 
+            onClick={() => i18n.changeLanguage(i18n.language === 'en' ? 'am' : 'en')}
+            className="bg-[#2A4B6E] px-3 py-1 rounded hover:bg-[#3A5B7E]"
+          >
+            {i18n.language === 'en' ? 'AM' : 'EN'}
+          </button>
+          
+          {/* SND Button */}
+          <button 
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className={`px-3 py-1 rounded ${soundEnabled ? 'bg-green-600' : 'bg-[#2A4B6E]'}`}
+          >
+            {soundEnabled ? 'SND' : 'MUTE'}
+          </button>
         </div>
       </div>
 
