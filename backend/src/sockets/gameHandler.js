@@ -154,6 +154,19 @@ function initGameHandler(io) {
       }
     })
 
+    socket.on('get_my_cards', async ({ roomId, userId } = {}) => {
+      try {
+        const selections = await db('room_card_selections').where({ room_id: roomId, user_id: userId })
+        const cards = selections.map((sel) => ({
+          id: sel.card_number,
+          matrix: typeof sel.matrix === 'string' ? JSON.parse(sel.matrix) : sel.matrix,
+        }))
+        socket.emit('my_cards', { cards })
+      } catch (err) {
+        console.error('get_my_cards error:', err)
+      }
+    })
+
     socket.on('disconnect', () => {
       for (const roomId in rooms) {
         const room = rooms[roomId]

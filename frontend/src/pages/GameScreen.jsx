@@ -49,9 +49,16 @@ const GameScreen = () => {
   // Socket Listeners
   useEffect(() => {
     socket.emit('join_room', { roomId, userId, stake });
+    socket.emit('get_my_cards', { roomId, userId });
 
     socket.on('room_update', (data) => setPlayersCount(data.players || data.playerCount || 0));
     socket.on('countdown_tick', (data) => setCountdown(data.timeLeft));
+    socket.on('my_cards', (data) => {
+      console.log("Received cards:", data);
+      if (data.cards && data.cards.length > 0) {
+        setCardsData(data.cards);
+      }
+    });
     
     socket.on('game_started', () => {
       setCountdown(null);
@@ -73,6 +80,7 @@ const GameScreen = () => {
     return () => {
       socket.off('room_update');
       socket.off('countdown_tick');
+      socket.off('my_cards');
       socket.off('game_started');
       socket.off('new_number_called');
       socket.off('game_over');
@@ -109,10 +117,10 @@ const GameScreen = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-col md:flex-row gap-4 flex-1">
+      <div className="flex flex-row gap-2 flex-1">
         
         {/* LEFT COLUMN: Tracker & Ball */}
-        <div className="flex flex-col gap-4 w-full md:w-[45%]">
+        <div className="w-1/2 flex flex-col gap-4">
           
           {/* Large Ball Area */}
           <div className="w-full h-40 bg-white border-4 border-red-600 rounded-lg flex items-center justify-center shadow-inner">
@@ -166,40 +174,44 @@ const GameScreen = () => {
         </div>
 
         {/* RIGHT COLUMN: Player Card */}
-        <div className="w-full md:w-[55%] flex flex-col justify-between">
-          <div className="bg-[#4a5568] p-3 rounded-xl shadow-lg">
-            <div className="text-center font-bold text-lg mb-2 text-gray-200">
-              Card No. {cardsData[0]?.id || '?'}
-            </div>
-            
-            <div className="grid grid-cols-5 gap-1 mb-2">
-              {['B', 'I', 'N', 'G', 'O'].map((letter) => (
-                <div key={letter} className={`text-center font-bold py-1 rounded text-white ${getBallColor(letter).split(' ')[0]}`}>
-                  {letter}
-                </div>
-              ))}
-            </div>
+        <div className="w-1/2 flex flex-col justify-between">
+          {cardsData && cardsData.length > 0 ? (
+            <div className="bg-[#4a5568] p-3 rounded-xl shadow-lg">
+              <div className="text-center font-bold text-lg mb-2 text-gray-200">
+                Card No. {cardsData[0]?.id || '?'}
+              </div>
+              
+              <div className="grid grid-cols-5 gap-1 mb-2">
+                {['B', 'I', 'N', 'G', 'O'].map((letter) => (
+                  <div key={letter} className={`text-center font-bold py-1 rounded text-white ${getBallColor(letter).split(' ')[0]}`}>
+                    {letter}
+                  </div>
+                ))}
+              </div>
 
-            <div className="grid grid-cols-5 gap-1">
-              {cardsData[0]?.matrix?.flat().map((num, index) => {
-                const isFree = index === 12 || num === 'FREE';
-                const isMarked = isFree || markedNumbers.includes(num);
-                
-                return (
-                  <button
-                    key={index}
-                    onClick={() => !isFree && handleDaub(num)}
-                    className={`aspect-square flex items-center justify-center font-bold text-lg rounded-md shadow-sm transition-transform
-                      ${isFree ? 'bg-blue-600 text-white border-b-0 transform translate-y-1' : 
-                        isMarked ? 'bg-green-500 text-white border-b-0 transform translate-y-1' : 
-                        'bg-white text-black border-b-4 border-gray-300 hover:bg-gray-100'}`}
-                  >
-                    {isFree ? 'F' : num}
-                  </button>
-                );
-              })}
+              <div className="grid grid-cols-5 gap-1">
+                {cardsData[0]?.matrix?.flat().map((num, index) => {
+                  const isFree = index === 12 || num === 'FREE';
+                  const isMarked = isFree || markedNumbers.includes(num);
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => !isFree && handleDaub(num)}
+                      className={`aspect-square flex items-center justify-center font-bold text-lg rounded-md shadow-sm transition-transform
+                        ${isFree ? 'bg-blue-600 text-white border-b-0 transform translate-y-1' : 
+                          isMarked ? 'bg-green-500 text-white border-b-0 transform translate-y-1' : 
+                          'bg-white text-black border-b-4 border-gray-300 hover:bg-gray-100'}`}
+                    >
+                      {isFree ? 'F' : num}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-white text-center mt-10">Loading Card...</div>
+          )}
 
           <button 
             onClick={handleBingoClick}
