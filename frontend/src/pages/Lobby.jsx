@@ -133,7 +133,7 @@ export default function Lobby() {
 
       <div className="w-full max-w-md flex items-center justify-between mb-6">
         <div className="text-xl font-bold text-yellow-400 tracking-wide">
-          ETHIO BINGO
+          GOBINGO
         </div>
       </div>
 
