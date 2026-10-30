@@ -28,7 +28,7 @@ export default function Lobby() {
   const { t, i18n } = useTranslation()
 
   const [walletBalance, setWalletBalance] = useState(0)
-  const [activeRooms, setActiveRooms] = useState([])
+  const [activeRooms, setActiveRooms] = useState({})
   const [menuOpen, setMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
 
@@ -46,8 +46,12 @@ export default function Lobby() {
 
   const fetchActiveRooms = () => {
     fetch(`${API_BASE}/api/rooms`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => setActiveRooms(Array.isArray(data) ? data : []))
+      .then((r) => (r.ok ? r.json() : { rooms: [] }))
+      .then((data) => {
+        const obj = {}
+        ;(data.rooms || []).forEach((r) => { obj[r.stake_amount] = true })
+        setActiveRooms(obj)
+      })
       .catch(() => {})
   }
 
@@ -153,22 +157,30 @@ export default function Lobby() {
           <div>{t('join')}</div>
         </div>
         {stakes.map((stake, idx) => {
-          const room = getActiveRoom(stake)
-          const possibleWin = Math.round(stake * 0.8)
+          const isActive = activeRooms[stake] ? true : false;
+          const possibleWin = isActive ? (stake * 1.5).toFixed(2) : '-';
+
           return (
-            <div key={stake} className="relative grid grid-cols-4 items-center text-center py-3 border-t border-[#1a3a5c]">
+            <div key={stake} className="relative grid grid-cols-4 text-center items-center py-2 border-b border-[#1e3a5f] last:border-b-0">
               <div className="text-green-400 font-bold">{stake}</div>
-              <div className="text-gray-300 text-sm flex items-center justify-center gap-1">
-                {room ? (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
-                    <span>Active</span>
-                  </>
+              
+              <div className="text-gray-300 text-sm">
+                {isActive ? <span className="text-green-500 font-bold">Yes</span> : 'None'}
+              </div>
+              
+              <div className="flex items-center justify-center gap-1 text-gray-300 text-sm">
+                {isActive ? (
+                  <span className="text-yellow-400 font-bold">{possibleWin}</span>
                 ) : (
-                  'None'
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                    </svg>
+                    -
+                  </>
                 )}
               </div>
-              <div className="text-gray-300 text-sm">{possibleWin}</div>
+              
               <div>
                 <button
                   onClick={() => handleJoin(stake)}
@@ -178,7 +190,7 @@ export default function Lobby() {
                 </button>
               </div>
             </div>
-          )
+          );
         })}
       </div>
     </div>

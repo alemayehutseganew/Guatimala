@@ -7,10 +7,9 @@ const { generateSingleCard } = require('../utils/cardGenerator')
 router.get('/', async (req, res) => {
   try {
     const rooms = await db('game_rooms').where({ status: 'WAITING' })
-    res.json(rooms)
+    res.json({ rooms })
   } catch (err) {
-    console.error('list rooms error:', err)
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ error: 'Failed' })
   }
 })
 router.post('/join', async (req, res) => {
