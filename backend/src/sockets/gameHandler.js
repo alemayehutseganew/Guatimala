@@ -158,8 +158,8 @@ function initGameHandler(io) {
       try {
         const selections = await db('room_card_selections').where({ room_id: roomId, user_id: userId })
         const cards = selections.map((sel) => ({
-          id: sel.card_number,
-          matrix: typeof sel.matrix === 'string' ? JSON.parse(sel.matrix) : sel.matrix,
+          id: sel.card_id,
+          matrix: typeof sel.card === 'string' ? JSON.parse(sel.card) : sel.card,
         }))
         socket.emit('my_cards', { cards })
       } catch (err) {

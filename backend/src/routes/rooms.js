@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const db = require('../db')
-const { generateCardMatrix } = require('../utils/roomCardGenerator')
+const { generateSingleCard } = require('../utils/cardGenerator')
 
 // POST /api/rooms/join
 router.post('/join', async (req, res) => {
@@ -9,10 +9,8 @@ router.post('/join', async (req, res) => {
     const { stake } = req.body
     console.log(`[join] Request received for stake: ${stake}`)
 
-    // Find a waiting room with this stake
     let room = await db('game_rooms').where({ stake_amount: stake, status: 'WAITING' }).first()
 
-    // If no room exists, create one
     if (!room) {
       const [newRoom] = await db('game_rooms').insert({
         stake_amount: stake,
@@ -38,14 +36,39 @@ router.get('/:roomId/cards', (req, res) => {
       id: i,
       card_number: i,
       taken: false,
-      matrix: generateCardMatrix(i),
+      matrix: generateSingleCard(),
     })
   }
   res.json(cards)
 })
 
-// POST /api/rooms/:id/select-cards
-// Body: { userId, cardIds: [1,2,...] }
+// POST /api/rooms/:id/cards/:cardId
+router.post('/:id/cards/:cardId', async (req, res) => {
+  try {
+    const { id: roomId, cardId } = req.params
+    const { userId } = req.body
+
+    const user = await db('users').where({ id: userId }).first()
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const matrix = generateSingleCard()
+
+    await db('room_card_selections').insert({
+      room_id: roomId,
+      card_id: parseInt(cardId),
+      user_id: user.id,
+      card: JSON.stringify(matrix),
+      status: 'reserved'
+    })
+
+    res.json({ success: true, cardId, matrix })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to save card' })
+  }
+})
+
+// POST /api/rooms/:id/select-cards (bulk, kept for compatibility)
 router.post('/:id/select-cards', async (req, res) => {
   try {
     const roomId = req.params.id
@@ -58,9 +81,10 @@ router.post('/:id/select-cards', async (req, res) => {
 
     const rows = cardIds.map((cardId) => ({
       room_id: roomId,
+      card_id: cardId,
       user_id: userId,
-      card_number: cardId,
-      matrix: JSON.stringify(generateCardMatrix(cardId)),
+      card: JSON.stringify(generateSingleCard()),
+      status: 'reserved',
     }))
 
     if (rows.length) {
@@ -74,28 +98,40 @@ router.post('/:id/select-cards', async (req, res) => {
   }
 })
 
-// GET /api/rooms/:id/my-cards?userId=...
+
+// GET /api/rooms/:id/my-cards
 router.get('/:id/my-cards', async (req, res) => {
   try {
     const roomId = req.params.id
-    const userId = req.query.userId
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' })
+    const { userId } = req.query
+
+    if (!roomId || !userId) {
+      return res.status(400).json({ error: 'roomId and userId are required' })
     }
-    const rows = await db('room_card_selections')
-      .where({ room_id: roomId, user_id: userId })
-      .select('card_number', 'matrix')
-    const cards = rows.map((r) => ({
-      card_number: r.card_number,
-      matrix: typeof r.matrix === 'string' ? JSON.parse(r.matrix) : r.matrix,
+
+    let user = await db('users').where({ id: userId }).first()
+    if (!user) {
+      user = await db('users').where({ telegram_id: userId }).first()
+    }
+
+    if (!user) {
+      console.log(`[my-cards] User not found for ID/Telegram: ${userId}`)
+      return res.json({ cards: [] })
+    }
+
+    const selections = await db('room_card_selections').where({ room_id: roomId, user_id: user.id })
+    console.log(`[my-cards] Found ${selections.length} cards for DB user ${user.id} in room ${roomId}`)
+
+    const cards = selections.map((selection) => ({
+      id: selection.card_id,
+      matrix: typeof selection.card === 'string' ? JSON.parse(selection.card) : selection.card,
     }))
-    return res.json(cards)
-  } catch (err) {
-    console.error('my-cards error:', err)
-    return res.status(500).json({ error: 'server error' })
+
+    return res.json({ cards })
+  } catch (error) {
+    console.error('[my-cards] Error:', error)
+    return res.status(500).json({ error: 'Failed to fetch cards' })
   }
 })
 
 module.exports = router
-
-
