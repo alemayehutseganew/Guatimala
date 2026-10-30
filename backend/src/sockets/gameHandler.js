@@ -4,8 +4,6 @@ const { Server } = require('socket.io')
 
 const rooms = {}
 
-const MIN_PLAYERS = 2
-
 function getLetterForNumber(num) {
   if (num <= 15) return 'B'
   if (num <= 30) return 'I'
@@ -14,88 +12,49 @@ function getLetterForNumber(num) {
   return 'O'
 }
 
-function startGameLoop(io, roomId) {
-  const room = rooms[roomId]
-  if (!room) return
-  room.status = 'PLAYING'
-  room.calledNumbers = new Set()
-
-  room.interval = setInterval(() => {
-    if (room.status !== 'PLAYING') {
-      clearInterval(room.interval)
-      room.interval = null
-      return
-    }
-    const available = []
-    for (let n = 1; n <= 75; n++) {
-      if (!room.calledNumbers.has(n)) available.push(n)
-    }
-    if (available.length === 0) {
-      clearInterval(room.interval)
-      room.interval = null
-      room.status = 'ENDED'
-      return
-    }
-    const num = available[Math.floor(Math.random() * available.length)]
-    room.calledNumbers.add(num)
-    let letter = 'B'
-    if (num > 15) letter = 'I'
-    if (num > 30) letter = 'N'
-    if (num > 45) letter = 'G'
-    if (num > 60) letter = 'O'
-    io.to(roomId).emit('new_number_called', {
-      number: num,
-      letter,
-      calledNumbers: Array.from(room.calledNumbers),
-    })
-    if (room.calledNumbers.size === 75) {
-      clearInterval(room.interval)
-      room.interval = null
-      room.status = 'ENDED'
-    }
-  }, 3000)
-}
-
 function initGameHandler(io) {
   io.on('connection', (socket) => {
-    socket.on('join_room', async (payload = {}) => {
+    socket.on('join_room', async ({ roomId, userId, stake }) => {
       try {
-        const { roomId, userId, cards: clientCards } = payload
-        if (!roomId) return
+        // Resolve the DB user (support both DB id and Telegram id, and dev mode)
+        let user = null
+        if (userId) {
+          user = await db('users').where({ id: userId }).first()
+          if (!user) {
+            user = await db('users').where({ telegram_id: userId }).first()
+          }
+        }
+        if (!user) {
+          // Dev fallback: allow joining without a DB user
+          user = { id: userId || socket.id }
+        }
 
         if (!rooms[roomId]) {
           rooms[roomId] = {
             id: roomId,
+            stake: Number(stake) || 10,
+            status: 'WAITING',
             players: {},
             calledNumbers: new Set(),
-            status: 'WAITING',
-            interval: null,
-            countdown: null,
-            gameInterval: null,
-            stake: null,
+            countdownStarted: false
           }
         }
 
-        const room = rooms[roomId]
-
-        let cards = Array.isArray(clientCards) ? clientCards : []
-        if (userId) {
-          try {
-            const dbCards = await db('room_cards').where({ room_id: roomId, user_id: userId })
-            if (dbCards && dbCards.length) {
-              cards = dbCards.map((c) => c.matrix)
-            }
-          } catch (e) {}
-        }
-
-        room.players[socket.id] = { userId, cards, socketId: socket.id }
+        const playerId = user.id
+        rooms[roomId].players[playerId] = { socketId: socket.id }
         socket.join(roomId)
 
-        const playerCount = Object.keys(room.players).length
-        io.to(roomId).emit('room_update', { playerCount, players: playerCount, stake: room.stake })
+        const playerCount = Object.keys(rooms[roomId].players).length
+        console.log(`[Game] Player ${playerId} joined ${roomId}. Total: ${playerCount}`)
 
-        if (playerCount >= MIN_PLAYERS && room.status === 'WAITING') {
-          room.status = 'COUNTDOWN'
+        io.to(roomId).emit('room_update', { players: playerCount, stake: rooms[roomId].stake })
+
+        // START COUNTDOWN IF 2+ PLAYERS AND NOT ALREADY STARTED
+        if (playerCount >= 2 && rooms[roomId].status === 'WAITING' && !rooms[roomId].countdownStarted) {
+          rooms[roomId].countdownStarted = true
+          rooms[roomId].status = 'COUNTDOWN'
+
+          console.log(`[Game] Starting countdown for room ${roomId}`)
           let timeLeft = 5
           io.to(roomId).emit('countdown_tick', { timeLeft })
 
@@ -105,21 +64,14 @@ function initGameHandler(io) {
 
             if (timeLeft <= 0) {
               clearInterval(countdownInterval)
-              room.countdown = null
-
-              const finalPlayerCount = Object.keys(room.players).length
-              if (finalPlayerCount < MIN_PLAYERS) {
-                room.status = 'WAITING'
-                io.to(roomId).emit('waiting_for_players', { message: 'Need 2 players to start' })
-                return
-              }
 
               rooms[roomId].status = 'PLAYING'
               io.to(roomId).emit('game_started')
+              console.log(`[Game] Game started for room ${roomId}`)
 
-              rooms[roomId].gameInterval = setInterval(() => {
+              const gameInterval = setInterval(() => {
                 if (rooms[roomId].status !== 'PLAYING') {
-                  clearInterval(rooms[roomId].gameInterval)
+                  clearInterval(gameInterval)
                   return
                 }
 
@@ -136,21 +88,20 @@ function initGameHandler(io) {
                 if (number > 45) letter = 'G'
                 if (number > 60) letter = 'O'
 
-                console.log(`[Game] Calling number: ${letter} ${num}`)
+                console.log(`[Game] Calling number: ${letter} ${number}`)
                 io.to(roomId).emit('new_number_called', { number, letter })
 
                 if (rooms[roomId].calledNumbers.size === 75) {
-                  clearInterval(rooms[roomId].gameInterval)
+                  clearInterval(gameInterval)
                   rooms[roomId].status = 'ENDED'
                 }
               }, 3000)
             }
           }, 1000)
-
-          room.countdown = countdownInterval
         }
       } catch (err) {
-        console.error('join_room error:', err)
+        console.error(err)
+        socket.emit('error', { message: 'Server error' })
       }
     })
 
@@ -158,7 +109,7 @@ function initGameHandler(io) {
       const room = rooms[roomId]
       if (!room) return
       if (room.status !== 'WAITING') return
-      if (Object.keys(room.players).length < MIN_PLAYERS) return
+      if (Object.keys(room.players).length < 2) return
 
       room.status = 'COUNTDOWN'
       let timeLeft = 5
@@ -170,62 +121,40 @@ function initGameHandler(io) {
 
         if (timeLeft <= 0) {
           clearInterval(countdownInterval)
-          room.countdown = null
-
-          const finalPlayerCount = Object.keys(room.players).length
-          if (finalPlayerCount < MIN_PLAYERS) {
-            room.status = 'WAITING'
-            io.to(roomId).emit('waiting_for_players', { message: 'Need 2 players to start' })
-            return
-          }
-
           room.status = 'PLAYING'
           io.to(roomId).emit('game_started')
 
-          room.gameInterval = setInterval(() => {
+          const gameInterval = setInterval(() => {
             if (room.status !== 'PLAYING') {
-              clearInterval(room.gameInterval)
-              room.gameInterval = null
+              clearInterval(gameInterval)
               return
             }
-
-            const available = []
-            for (let n = 1; n <= 75; n++) {
-              if (!room.calledNumbers.has(n)) available.push(n)
-            }
-            if (available.length === 0) {
-              clearInterval(room.gameInterval)
-              room.gameInterval = null
-              room.status = 'ENDED'
-              return
-            }
-            const num = available[Math.floor(Math.random() * available.length)]
-            room.calledNumbers.add(num)
+            let number
+            do {
+              number = Math.floor(Math.random() * 75) + 1
+            } while (room.calledNumbers.has(number))
+            room.calledNumbers.add(number)
             let letter = 'B'
-            if (num > 15) letter = 'I'
-            if (num > 30) letter = 'N'
-            if (num > 45) letter = 'G'
-            if (num > 60) letter = 'O'
-            console.log(`[Game] Calling number: ${letter} ${num}`)
-            io.to(roomId).emit('new_number_called', { number: num, letter, calledNumbers: Array.from(room.calledNumbers) })
+            if (number > 15) letter = 'I'
+            if (number > 30) letter = 'N'
+            if (number > 45) letter = 'G'
+            if (number > 60) letter = 'O'
+            io.to(roomId).emit('new_number_called', { number, letter })
             if (room.calledNumbers.size === 75) {
-              clearInterval(room.gameInterval)
-              room.gameInterval = null
+              clearInterval(gameInterval)
               room.status = 'ENDED'
             }
           }, 3000)
         }
       }, 1000)
-
-      room.countdown = countdownInterval
     })
 
     socket.on('claim_bingo', async ({ roomId, userId, cardId, markedNumbers }) => {
       try {
-        // 1. Fetch the player's actual card from the DB to prevent cheating
-        let user = await db('users').where({ id: userId }).first()
-        if (!user) {
-          user = await db('users').where({ telegram_id: userId }).first()
+        let user = null
+        if (userId) {
+          user = await db('users').where({ id: userId }).first()
+          if (!user) user = await db('users').where({ telegram_id: userId }).first()
         }
         if (!user) {
           return socket.emit('bingo_result', { success: false, message: 'User not found' })
@@ -240,26 +169,19 @@ function initGameHandler(io) {
         }
 
         const cardMatrix = typeof selection.card === 'string' ? JSON.parse(selection.card) : selection.card
-
-        // 2. Validate the pattern
-        const result = validateBingo(cardMatrix, markedNumbers)
+        const result = validateBingo(cardMatrix, markedNumbers || [])
 
         if (result.isValid) {
           const prizeAmount = 17
-
           if (rooms[roomId]) {
             rooms[roomId].status = 'ENDED'
             rooms[roomId].winner = userId
-            if (rooms[roomId].gameInterval) { clearInterval(rooms[roomId].gameInterval); rooms[roomId].gameInterval = null }
-            if (rooms[roomId].countdown) { clearInterval(rooms[roomId].countdown); rooms[roomId].countdown = null }
           }
-
           socket.emit('bingo_result', {
             success: true,
             message: `BINGO! You won ${prizeAmount} ETB with a ${result.pattern}!`,
             amount: prizeAmount,
           })
-
           socket.to(roomId).emit('game_over', { winner: user.first_name })
         } else {
           socket.emit('bingo_result', { success: false, message: 'Not a valid Bingo. Keep playing!' })
@@ -272,7 +194,15 @@ function initGameHandler(io) {
 
     socket.on('get_my_cards', async ({ roomId, userId } = {}) => {
       try {
-        const selections = await db('room_card_selections').where({ room_id: roomId, user_id: userId })
+        let uid = userId
+        if (uid) {
+          const u = await db('users').where({ id: uid }).first()
+          if (!u) {
+            const u2 = await db('users').where({ telegram_id: uid }).first()
+            if (u2) uid = u2.id
+          }
+        }
+        const selections = await db('room_card_selections').where({ room_id: roomId, user_id: uid })
         const cards = selections.map((sel) => ({
           id: sel.card_id,
           matrix: typeof sel.card === 'string' ? JSON.parse(sel.card) : sel.card,
@@ -288,7 +218,8 @@ function initGameHandler(io) {
         const room = rooms[roomId]
         if (room.players[socket.id]) {
           delete room.players[socket.id]
-          io.to(roomId).emit('room_update', { playerCount: Object.keys(room.players).length, players: Object.keys(room.players).length })
+          const pc = Object.keys(room.players).length
+          io.to(roomId).emit('room_update', { playerCount: pc, players: pc })
         }
       }
     })
@@ -303,4 +234,4 @@ function setupSocket(server) {
   return io
 }
 
-module.exports = { initGameHandler, setupSocket, rooms, startGameLoop }
+module.exports = { initGameHandler, setupSocket, rooms }
