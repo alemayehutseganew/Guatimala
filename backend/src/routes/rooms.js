@@ -3,7 +3,16 @@ const router = express.Router()
 const db = require('../db')
 const { generateSingleCard } = require('../utils/cardGenerator')
 
-// POST /api/rooms/join
+// GET /api/rooms (list waiting rooms)
+router.get('/', async (req, res) => {
+  try {
+    const rooms = await db('game_rooms').where({ status: 'WAITING' })
+    res.json(rooms)
+  } catch (err) {
+    console.error('list rooms error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
 router.post('/join', async (req, res) => {
   try {
     const { stake } = req.body

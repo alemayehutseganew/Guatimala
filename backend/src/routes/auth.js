@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken')
 const db = require('../db')
 
 const router = express.Router()
+const authMiddleware = require('../middleware/auth')
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'
 
@@ -78,6 +79,11 @@ router.post('/login', async (req, res) => {
     console.error('Auth login error:', err)
     return res.status(500).json({ error: 'server error' })
   }
+})
+
+// GET /api/auth/me
+router.get('/me', authMiddleware, (req, res) => {
+  return res.json(req.user)
 })
 
 module.exports = router
