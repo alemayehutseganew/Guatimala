@@ -50,21 +50,32 @@ export default function CardSelection() {
     })
   }
 
-  const handleConfirmCards = async () => {
+  const handleConfirmCards = async (overrideSelected) => {
+    const sel = overrideSelected || selected
     const userId = localStorage.getItem('dbUserId') || 1
     try {
       await fetch(`${API_BASE}/api/rooms/${roomId}/select-cards`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: Number(userId), cardIds: selected }),
+        body: JSON.stringify({ userId: Number(userId), cardIds: sel }),
       })
     } catch (e) {
       console.error('Failed to save selected cards', e)
     }
-    localStorage.setItem('selectedCards', JSON.stringify(selected))
-    localStorage.setItem('selectedCardIds', JSON.stringify(selected))
+    localStorage.setItem('selectedCards', JSON.stringify(sel))
+    localStorage.setItem('selectedCardIds', JSON.stringify(sel))
     localStorage.setItem('stake', stake)
     navigate(`/game?stake=${stake}&roomId=${roomId}`)
+  }
+
+  const handleConfirmPreview = () => {
+    let sel = selected
+    if (!selected.includes(previewCard.id) && selected.length < MAX_SELECTION) {
+      sel = [...selected, previewCard.id]
+      setSelected(sel)
+    }
+    setPreviewCard(null)
+    handleConfirmCards(sel)
   }
 
   if (loading) {
@@ -132,40 +143,44 @@ export default function CardSelection() {
       {/* Preview Modal */}
       {previewCard && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-4 w-full max-w-sm">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-[#112A46] font-bold">Card {previewCard.card_number}</h2>
-              <button onClick={() => setPreviewCard(null)} className="text-gray-500 text-xl">&times;</button>
+          <div className="bg-white rounded-xl p-4 w-11/12 max-w-sm mx-auto shadow-2xl relative">
+            <button onClick={() => setPreviewCard(null)} className="absolute top-3 right-3 text-gray-500 font-bold text-xl">
+              ✕
+            </button>
+
+            <h3 className="text-xl font-bold text-[#112A46] mb-4 text-center">
+              Card {previewCard?.cardId || previewCard?.id}
+            </h3>
+
+            <div className="grid grid-cols-5 gap-1 mb-2">
+              <div className="bg-green-700 text-white font-bold py-1 rounded text-center">B</div>
+              <div className="bg-yellow-500 text-white font-bold py-1 rounded text-center">I</div>
+              <div className="bg-red-600 text-white font-bold py-1 rounded text-center">N</div>
+              <div className="bg-green-500 text-white font-bold py-1 rounded text-center">G</div>
+              <div className="bg-red-600 text-white font-bold py-1 rounded text-center">O</div>
             </div>
-            <div className="grid grid-cols-5 gap-1">
-              {['B', 'I', 'N', 'G', 'O'].map((h) => (
-                <div key={h} className="bg-[#112A46] text-white text-center font-bold py-1 rounded">
-                  {h}
-                </div>
-              ))}
-              {previewCard.matrix.map((row, rIdx) =>
-                row.map((val, cIdx) => (
+
+            <div className="grid grid-cols-5 gap-1 mb-6">
+              {previewCard?.matrix?.flat().map((num, index) => {
+                const isFree = index === 12 || num === 'FREE'
+                return (
                   <div
-                    key={`${rIdx}-${cIdx}`}
-                    className="bingo-3d-box aspect-square flex items-center justify-center text-[#112A46] font-bold text-sm"
+                    key={index}
+                    className={`aspect-square flex items-center justify-center font-bold text-sm rounded shadow-sm ${
+                      isFree ? 'bg-blue-600 text-white' : 'bg-white text-black border-b-2 border-gray-300'
+                    }`}
                   >
-                    {val === 0 ? 'FREE' : val}
+                    {isFree ? 'F' : num}
                   </div>
-                ))
-              )}
+                )
+              })}
             </div>
+
             <button
-              onClick={() => {
-                if (selected.includes(previewCard.id)) {
-                  handleConfirmCards()
-                } else {
-                  toggleSelect(previewCard)
-                  setPreviewCard(null)
-                }
-              }}
-              className="w-full mt-3 bg-[#112A46] text-white font-bold py-2 rounded"
+              onClick={handleConfirmPreview}
+              className="w-full bg-[#112A46] text-white font-bold py-3 rounded-lg shadow-md hover:bg-[#1e3a5f]"
             >
-              {selected.includes(previewCard.id) ? 'Confirm Cards' : 'Select Card'}
+              Confirm Cards
             </button>
           </div>
         </div>
