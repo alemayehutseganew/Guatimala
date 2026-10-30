@@ -4,12 +4,61 @@ const { Server } = require('socket.io')
 
 const rooms = {}
 
+const MIN_PLAYERS = 1
+
 function getLetterForNumber(num) {
   if (num <= 15) return 'B'
   if (num <= 30) return 'I'
   if (num <= 45) return 'N'
   if (num <= 60) return 'G'
   return 'O'
+}
+
+function startGameLoop(io, roomId) {
+  const room = rooms[roomId]
+  if (!room) return
+  room.status = 'PLAYING'
+  room.calledNumbers = []
+
+  room.interval = setInterval(() => {
+    const available = []
+    for (let n = 1; n <= 75; n++) {
+      if (!room.calledNumbers.includes(n)) available.push(n)
+    }
+    if (available.length === 0) {
+      clearInterval(room.interval)
+      room.interval = null
+      return
+    }
+    const num = available[Math.floor(Math.random() * available.length)]
+    room.calledNumbers.push(num)
+    io.to(roomId).emit('new_number_called', {
+      number: num,
+      letter: getLetterForNumber(num),
+      calledNumbers: room.calledNumbers,
+    })
+  }, 3000)
+}
+
+function startCountdown(io, roomId) {
+  const room = rooms[roomId]
+  if (!room || room.status !== 'WAITING') return
+  if (room.players.size < MIN_PLAYERS) return
+
+  room.status = 'COUNTDOWN'
+  let timeLeft = 5
+  io.to(roomId).emit('countdown_tick', { timeLeft })
+
+  room.countdown = setInterval(() => {
+    timeLeft -= 1
+    io.to(roomId).emit('countdown_tick', { timeLeft })
+
+    if (timeLeft <= 0) {
+      clearInterval(room.countdown)
+      room.countdown = null
+      startGameLoop(io, roomId)
+    }
+  }, 1000)
 }
 
 function initGameHandler(io) {
@@ -32,7 +81,6 @@ function initGameHandler(io) {
 
         const room = rooms[roomId]
 
-        // Fetch the user's cards from the database when possible
         let cards = Array.isArray(clientCards) ? clientCards : []
         if (userId) {
           try {
@@ -49,6 +97,10 @@ function initGameHandler(io) {
         socket.join(roomId)
 
         io.to(roomId).emit('room_update', { playerCount: room.players.size })
+
+        if (room.players.size >= MIN_PLAYERS && room.status === 'WAITING') {
+          startCountdown(io, roomId)
+        }
       } catch (err) {
         console.error('join_room error:', err)
       }
@@ -58,41 +110,8 @@ function initGameHandler(io) {
       const room = rooms[roomId]
       if (!room) return
       if (room.status !== 'WAITING') return
-      if (room.players.size < 2) return
-
-      room.status = 'COUNTDOWN'
-      let count = 5
-
-      room.countdown = setInterval(() => {
-        io.to(roomId).emit('countdown_tick', count)
-        count -= 1
-
-        if (count < 0) {
-          clearInterval(room.countdown)
-          room.countdown = null
-          room.status = 'PLAYING'
-          room.calledNumbers = []
-
-          room.interval = setInterval(() => {
-            const available = []
-            for (let n = 1; n <= 75; n++) {
-              if (!room.calledNumbers.includes(n)) available.push(n)
-            }
-            if (available.length === 0) {
-              clearInterval(room.interval)
-              room.interval = null
-              return
-            }
-            const num = available[Math.floor(Math.random() * available.length)]
-            room.calledNumbers.push(num)
-            io.to(roomId).emit('new_number_called', {
-              number: num,
-              letter: getLetterForNumber(num),
-              calledNumbers: room.calledNumbers,
-            })
-          }, 3000)
-        }
-      }, 1000)
+      if (room.players.size < MIN_PLAYERS) return
+      startCountdown(io, roomId)
     })
 
     socket.on('claim_bingo', ({ roomId, card } = {}) => {
@@ -152,5 +171,4 @@ function setupSocket(server) {
   return io
 }
 
-module.exports = { initGameHandler, setupSocket, rooms }
-
+module.exports = { initGameHandler, setupSocket, rooms, startGameLoop, startCountdown }

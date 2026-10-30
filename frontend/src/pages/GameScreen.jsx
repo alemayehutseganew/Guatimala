@@ -60,8 +60,9 @@ export default function GameScreen() {
       }
     })
 
-    s.on('countdown_tick', (n) => {
-      setCountdown(n)
+    s.on('countdown_tick', (data) => {
+      const t = (data && typeof data.timeLeft !== 'undefined') ? data.timeLeft : data
+      setCountdown(t)
     })
 
     s.on('new_number_called', (data) => {
