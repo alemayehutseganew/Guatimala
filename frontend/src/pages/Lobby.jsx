@@ -62,7 +62,7 @@ export default function Lobby() {
           </svg>
         </button>
         <div className="text-xl font-bold text-yellow-400 tracking-wide">
-          GOBINGO
+          ETHIO BINGO
         </div>
       </div>
 
@@ -75,14 +75,20 @@ export default function Lobby() {
           <div>{t('possibleWin')}</div>
           <div>{t('join')}</div>
         </div>
-        
+        {stakes.map((stake, idx) => (
+          <div key={stake} className="relative grid grid-cols-4 items-center text-center py-3 border-t border-[#1a3a5c]">
+            {idx < 2 && (
+              <span className="absolute -left-2 top-1/2 -translate-y-1/2 bg-yellow-400 text-[#112A46] text-[10px] font-bold px-2 py-0.5 rounded">
+                {t('bonus')}
+              </span>
+            )}
             <div className="text-green-400 font-bold">{stake}</div>
             <div className="text-gray-300 text-sm">{t('none')}</div>
             <div className="flex items-center justify-center gap-1 text-gray-300 text-sm">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
               </svg>
-              
+              -
             </div>
             <div>
               <button
