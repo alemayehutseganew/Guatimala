@@ -23,7 +23,7 @@ function generateCardMatrix(cardNumber) {
     const row = []
     for (let j = 0; j < 5; j += 1) {
       if (i === 2 && j === 2) {
-        row.push(0) // FREE
+        row.push('FREE') // FREE
       } else {
         row.push(cols[j][i])
       }

@@ -1,5 +1,5 @@
 const db = require('../db')
-const { validateBingo } = require('../utils/patternValidator')
+const { validateBingo } = require('../utils/bingoValidator')
 const { Server } = require('socket.io')
 
 const rooms = {}
@@ -142,7 +142,7 @@ function initGameHandler(io) {
       room.countdown = countdownInterval
     })
 
-    socket.on('claim_bingo', ({ roomId, card } = {}) => {
+    socket.on('claim_bingo', ({ roomId, card, markedNumbers } = {}) => {
       const room = rooms[roomId]
       if (!room || room.status !== 'PLAYING') return
 
@@ -150,7 +150,11 @@ function initGameHandler(io) {
       const cardToCheck = card || (player && player.cards && player.cards[0])
       if (!cardToCheck) return
 
-      const result = validateBingo(cardToCheck, Array.from(room.calledNumbers))
+      const numbersToCheck = Array.isArray(markedNumbers) && markedNumbers.length
+        ? markedNumbers
+        : Array.from(room.calledNumbers)
+
+      const result = validateBingo(cardToCheck, numbersToCheck)
 
       if (result.isValid) {
         room.status = 'ENDED'
