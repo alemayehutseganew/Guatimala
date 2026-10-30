@@ -128,21 +128,36 @@ export default function GameScreen() {
         </button>
       </div>
 
-      <div className="flex gap-2 mb-2">
-        <div className="flex-1 bg-white rounded-lg flex items-center justify-center h-24 border-4 border-red-500">
+      <div className="flex gap-2 mb-2 items-center">
+        <div className={`flex-1 bg-white rounded-lg flex items-center justify-center h-24 border-4 ${
+          currentLetter === 'B' ? 'border-blue-500' :
+          currentLetter === 'I' ? 'border-red-500' :
+          currentLetter === 'N' ? 'border-purple-500' :
+          currentLetter === 'G' ? 'border-green-500' :
+          currentLetter === 'O' ? 'border-yellow-400' : 'border-red-500'
+        }`}>
           <div className="flex flex-col items-center">
-            <span className="text-red-500 text-2xl font-bold">{currentLetter}</span>
+            <span className="text-sm font-bold text-gray-500">{currentLetter}</span>
             <span className="text-[#112A46] text-4xl font-bold">
               {countdown > 0 && !currentBall ? countdown : (currentBall || '-')}
             </span>
           </div>
         </div>
         <div className="flex gap-1 items-center overflow-x-auto">
-          {previousBalls.map((n, i) => (
-            <div key={i} className="w-8 h-8 rounded-full bg-gray-300 text-[#112A46] flex items-center justify-center text-xs font-bold">
-              {n}
-            </div>
-          ))}
+          {previousBalls.slice(0, 5).map((n, i) => {
+            const l = n <= 15 ? 'B' : n <= 30 ? 'I' : n <= 45 ? 'N' : n <= 60 ? 'G' : 'O'
+            const cls =
+              l === 'B' ? 'border-blue-500' :
+              l === 'I' ? 'border-red-500' :
+              l === 'N' ? 'border-purple-500' :
+              l === 'G' ? 'border-green-500' : 'border-yellow-400'
+            return (
+              <div key={i} className={`w-9 h-9 rounded-full bg-white border-2 ${cls} text-[#112A46] flex flex-col items-center justify-center text-[10px] font-bold`}>
+                <span>{l}</span>
+                <span>{n}</span>
+              </div>
+            )
+          })}
         </div>
       </div>
       <div className="flex gap-2 flex-1">
@@ -155,7 +170,14 @@ export default function GameScreen() {
             { label: 'O', nums: Array.from({ length: 15 }, (_, i) => i + 61) },
           ].map((col) => (
             <div key={col.label} className="flex flex-col gap-1">
-              <div className="text-center font-bold text-yellow-400 text-sm">{col.label}</div>
+              <div className={`text-center font-bold text-sm py-1 rounded ${
+                col.label === 'B' ? 'bg-green-700' :
+                col.label === 'I' ? 'bg-yellow-500' :
+                col.label === 'N' ? 'bg-red-600' :
+                col.label === 'G' ? 'bg-green-400' : 'bg-red-600'
+              } text-white`}>
+                {col.label}
+              </div>
               {col.nums.map((n) => (
                 <div
                   key={n}
@@ -174,7 +196,7 @@ export default function GameScreen() {
           {card && (
             <div className="grid grid-cols-5 gap-1">
               {['B', 'I', 'N', 'G', 'O'].map((h) => (
-                <div key={h} className="bg-[#112A46] text-yellow-400 text-center font-bold py-1 rounded text-sm">
+                <div key={h} className={`text-center font-bold py-1 rounded text-sm ${h === 'B' ? 'bg-green-700' : h === 'I' ? 'bg-yellow-500' : h === 'N' ? 'bg-red-600' : h === 'G' ? 'bg-green-400' : 'bg-red-600'} text-white`}>
                   {h}
                 </div>
               ))}
@@ -202,7 +224,7 @@ export default function GameScreen() {
           )}
           <button
             onClick={claimBingo}
-            className="w-full mt-2 bg-yellow-400 text-[#112A46] font-bold py-2 rounded"
+            className="w-full mt-2 bg-yellow-400 text-[#112A46] font-bold py-3 rounded-full text-lg sticky bottom-0"
           >
             BINGO
           </button>
