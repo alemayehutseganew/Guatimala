@@ -16,18 +16,12 @@ function initGameHandler(io) {
   io.on('connection', (socket) => {
     socket.on('join_room', async ({ roomId, userId, stake }) => {
       try {
-        // Resolve the DB user (support both DB id and Telegram id, and dev mode)
         let user = null
         if (userId) {
           user = await db('users').where({ id: userId }).first()
-          if (!user) {
-            user = await db('users').where({ telegram_id: userId }).first()
-          }
+          if (!user) user = await db('users').where({ telegram_id: userId }).first()
         }
-        if (!user) {
-          // Dev fallback: allow joining without a DB user
-          user = { id: userId || socket.id }
-        }
+        if (!user) user = { id: userId || socket.id, first_name: 'Player' }
 
         if (!rooms[roomId]) {
           rooms[roomId] = {
@@ -36,7 +30,7 @@ function initGameHandler(io) {
             status: 'WAITING',
             players: {},
             calledNumbers: new Set(),
-            countdownStarted: false
+            intervalId: null,
           }
         }
 
@@ -49,12 +43,8 @@ function initGameHandler(io) {
 
         io.to(roomId).emit('room_update', { players: playerCount, stake: rooms[roomId].stake })
 
-        // START COUNTDOWN IF 2+ PLAYERS AND NOT ALREADY STARTED
-        if (playerCount >= 2 && rooms[roomId].status === 'WAITING' && !rooms[roomId].countdownStarted) {
-          rooms[roomId].countdownStarted = true
+        if (playerCount >= 2 && rooms[roomId].status === 'WAITING') {
           rooms[roomId].status = 'COUNTDOWN'
-
-          console.log(`[Game] Starting countdown for room ${roomId}`)
           let timeLeft = 5
           io.to(roomId).emit('countdown_tick', { timeLeft })
 
@@ -64,35 +54,33 @@ function initGameHandler(io) {
 
             if (timeLeft <= 0) {
               clearInterval(countdownInterval)
-
               rooms[roomId].status = 'PLAYING'
               io.to(roomId).emit('game_started')
               console.log(`[Game] Game started for room ${roomId}`)
 
-              const gameInterval = setInterval(() => {
+              if (rooms[roomId].intervalId) clearInterval(rooms[roomId].intervalId)
+
+              rooms[roomId].intervalId = setInterval(() => {
                 if (rooms[roomId].status !== 'PLAYING') {
-                  clearInterval(gameInterval)
+                  clearInterval(rooms[roomId].intervalId)
+                  rooms[roomId].intervalId = null
                   return
                 }
-
                 let number
                 do {
                   number = Math.floor(Math.random() * 75) + 1
                 } while (rooms[roomId].calledNumbers.has(number))
-
                 rooms[roomId].calledNumbers.add(number)
-
                 let letter = 'B'
                 if (number > 15) letter = 'I'
                 if (number > 30) letter = 'N'
                 if (number > 45) letter = 'G'
                 if (number > 60) letter = 'O'
-
                 console.log(`[Game] Calling number: ${letter} ${number}`)
                 io.to(roomId).emit('new_number_called', { number, letter })
-
                 if (rooms[roomId].calledNumbers.size === 75) {
-                  clearInterval(gameInterval)
+                  clearInterval(rooms[roomId].intervalId)
+                  rooms[roomId].intervalId = null
                   rooms[roomId].status = 'ENDED'
                 }
               }, 3000)
@@ -100,7 +88,7 @@ function initGameHandler(io) {
           }, 1000)
         }
       } catch (err) {
-        console.error(err)
+        console.error('[Game] Join room error:', err)
         socket.emit('error', { message: 'Server error' })
       }
     })
@@ -124,9 +112,10 @@ function initGameHandler(io) {
           room.status = 'PLAYING'
           io.to(roomId).emit('game_started')
 
-          const gameInterval = setInterval(() => {
+          room.intervalId = setInterval(() => {
             if (room.status !== 'PLAYING') {
-              clearInterval(gameInterval)
+              clearInterval(room.intervalId)
+              room.intervalId = null
               return
             }
             let number
@@ -141,7 +130,8 @@ function initGameHandler(io) {
             if (number > 60) letter = 'O'
             io.to(roomId).emit('new_number_called', { number, letter })
             if (room.calledNumbers.size === 75) {
-              clearInterval(gameInterval)
+              clearInterval(room.intervalId)
+              room.intervalId = null
               room.status = 'ENDED'
             }
           }, 3000)
@@ -176,6 +166,7 @@ function initGameHandler(io) {
           if (rooms[roomId]) {
             rooms[roomId].status = 'ENDED'
             rooms[roomId].winner = userId
+            if (rooms[roomId].intervalId) { clearInterval(rooms[roomId].intervalId); rooms[roomId].intervalId = null }
           }
           socket.emit('bingo_result', {
             success: true,
