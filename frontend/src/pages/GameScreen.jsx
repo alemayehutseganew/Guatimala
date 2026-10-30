@@ -110,6 +110,18 @@ export default function GameScreen() {
 
   const stake = localStorage.getItem('stake') || '10'
 
+  const getBallColor = (letter) => {
+    switch (letter) {
+      case 'B': return 'bg-blue-700 border-blue-900'
+      case 'I': return 'bg-red-600 border-red-800'
+      case 'N': return 'bg-purple-600 border-purple-800'
+      case 'G': return 'bg-green-600 border-green-800'
+      case 'O': return 'bg-yellow-500 border-yellow-700'
+      default: return 'bg-gray-500 border-gray-700'
+    }
+  }
+
+
   return (
     <div className="min-h-screen bg-[#112A46] text-white p-2 flex flex-col">
       <div className="flex items-center justify-between gap-2 mb-2 text-xs">
@@ -128,37 +140,33 @@ export default function GameScreen() {
         </button>
       </div>
 
-      <div className="flex gap-2 mb-2 items-center">
-        <div className={`flex-1 bg-white rounded-lg flex items-center justify-center h-24 border-4 ${
-          currentLetter === 'B' ? 'border-blue-500' :
-          currentLetter === 'I' ? 'border-red-500' :
-          currentLetter === 'N' ? 'border-purple-500' :
-          currentLetter === 'G' ? 'border-green-500' :
-          currentLetter === 'O' ? 'border-yellow-400' : 'border-red-500'
-        }`}>
+      <div className="w-full h-32 bg-white border-4 border-red-600 rounded-lg flex items-center justify-center mb-4">
+        {countdown > 0 && !currentBall ? (
+          <span className="text-6xl font-bold text-[#112A46]">{countdown}</span>
+        ) : currentBall ? (
           <div className="flex flex-col items-center">
-            <span className="text-sm font-bold text-gray-500">{currentLetter}</span>
-            <span className="text-[#112A46] text-4xl font-bold">
-              {countdown > 0 && !currentBall ? countdown : (currentBall || '-')}
-            </span>
+            <span className="text-xl font-bold">{currentLetter}</span>
+            <span className="text-6xl font-bold">{currentBall}</span>
           </div>
-        </div>
-        <div className="flex gap-1 items-center overflow-x-auto">
-          {previousBalls.slice(0, 5).map((n, i) => {
-            const l = n <= 15 ? 'B' : n <= 30 ? 'I' : n <= 45 ? 'N' : n <= 60 ? 'G' : 'O'
-            const cls =
-              l === 'B' ? 'border-blue-500' :
-              l === 'I' ? 'border-red-500' :
-              l === 'N' ? 'border-purple-500' :
-              l === 'G' ? 'border-green-500' : 'border-yellow-400'
-            return (
-              <div key={i} className={`w-9 h-9 rounded-full bg-white border-2 ${cls} text-[#112A46] flex flex-col items-center justify-center text-[10px] font-bold`}>
-                <span>{l}</span>
-                <span>{n}</span>
-              </div>
-            )
-          })}
-        </div>
+        ) : (
+          <span className="text-gray-400">Waiting for numbers...</span>
+        )}
+      </div>
+      <div className="flex gap-1 items-center overflow-x-auto mb-2">
+        {previousBalls.slice(0, 5).map((n, i) => {
+          const l = n <= 15 ? 'B' : n <= 30 ? 'I' : n <= 45 ? 'N' : n <= 60 ? 'G' : 'O'
+          const cls =
+            l === 'B' ? 'border-blue-500' :
+            l === 'I' ? 'border-red-500' :
+            l === 'N' ? 'border-purple-500' :
+            l === 'G' ? 'border-green-500' : 'border-yellow-400'
+          return (
+            <div key={i} className={`w-9 h-9 rounded-full bg-white border-2 ${cls} text-[#112A46] flex flex-col items-center justify-center text-[10px] font-bold`}>
+              <span>{l}</span>
+              <span>{n}</span>
+            </div>
+          )
+        })}
       </div>
       <div className="flex gap-2 flex-1">
         <div className="flex-1 grid grid-cols-5 gap-1 content-start">
