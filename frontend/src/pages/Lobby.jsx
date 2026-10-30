@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
-const stakes = [10, 20, 30, 50, 80, 100, 150, 200]
+const stakes = [10,50,100]
 
 const AMHARIC_INSTRUCTIONS = `እንኳን ወደ ጎቢንጎ በደህና መጡ!
 
