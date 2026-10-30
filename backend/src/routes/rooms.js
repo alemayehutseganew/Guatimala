@@ -4,29 +4,29 @@ const db = require('../db')
 const { generateCardMatrix } = require('../utils/roomCardGenerator')
 
 // POST /api/rooms/join
-// Body: { stake }
 router.post('/join', async (req, res) => {
   try {
-    const { stake } = req.body || {}
-    if (stake === undefined || stake === null) {
-      return res.status(400).json({ error: 'stake is required' })
-    }
+    const { stake } = req.body
+    console.log(`[join] Request received for stake: ${stake}`)
 
-    // Look for a waiting room with this stake
-    let room = await db('rooms').where({ stake_amount: stake, status: 'WAITING' }).first()
+    // Find a waiting room with this stake
+    let room = await db('game_rooms').where({ stake_amount: stake, status: 'WAITING' }).first()
 
     // If no room exists, create one
     if (!room) {
-      const [newRoom] = await db('rooms')
-        .insert({ stake_amount: stake, status: 'WAITING' })
-        .returning('*')
+      const [newRoom] = await db('game_rooms').insert({
+        stake_amount: stake,
+        status: 'WAITING',
+        called_numbers: JSON.stringify([])
+      }).returning('*')
       room = newRoom
+      console.log(`[join] Created new room: ${room.id}`)
     }
 
-    return res.json({ roomId: room.id, stake: room.stake_amount })
+    res.json({ roomId: room.id, stake: room.stake_amount })
   } catch (err) {
-    console.error('join room error:', err)
-    return res.status(500).json({ error: err.message })
+    console.error('[join] Error:', err)
+    res.status(500).json({ error: err.message })
   }
 })
 
@@ -54,7 +54,6 @@ router.post('/:id/select-cards', async (req, res) => {
       return res.status(400).json({ error: 'userId and cardIds are required' })
     }
 
-    // Remove any previous selections for this user/room
     await db('room_card_selections').where({ room_id: roomId, user_id: userId }).del()
 
     const rows = cardIds.map((cardId) => ({
@@ -98,4 +97,5 @@ router.get('/:id/my-cards', async (req, res) => {
 })
 
 module.exports = router
+
 
