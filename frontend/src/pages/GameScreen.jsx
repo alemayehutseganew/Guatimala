@@ -136,7 +136,10 @@ const GameScreen = () => {
           
           {/* SND Button */}
           <button 
-            onClick={() => setSoundEnabled(!soundEnabled)}
+            onClick={() => {
+              if (soundEnabled) window.speechSynthesis?.cancel()
+              setSoundEnabled(!soundEnabled)
+            }}
             className={`px-3 py-1 rounded ${soundEnabled ? 'bg-green-600' : 'bg-[#2A4B6E]'}`}
           >
             {soundEnabled ? 'SND' : 'MUTE'}
