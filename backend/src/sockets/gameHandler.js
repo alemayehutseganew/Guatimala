@@ -142,31 +142,53 @@ function initGameHandler(io) {
       room.countdown = countdownInterval
     })
 
-    socket.on('claim_bingo', ({ roomId, card, markedNumbers } = {}) => {
-      const room = rooms[roomId]
-      if (!room || room.status !== 'PLAYING') return
+    socket.on('claim_bingo', async ({ roomId, userId, cardId, markedNumbers }) => {
+      try {
+        // 1. Fetch the player's actual card from the DB to prevent cheating
+        let user = await db('users').where({ id: userId }).first()
+        if (!user) {
+          user = await db('users').where({ telegram_id: userId }).first()
+        }
+        if (!user) {
+          return socket.emit('bingo_result', { success: false, message: 'User not found' })
+        }
 
-      const player = room.players[socket.id]
-      const cardToCheck = card || (player && player.cards && player.cards[0])
-      if (!cardToCheck) return
+        const selection = await db('room_card_selections')
+          .where({ room_id: roomId, user_id: user.id, card_id: cardId })
+          .first()
 
-      const numbersToCheck = Array.isArray(markedNumbers) && markedNumbers.length
-        ? markedNumbers
-        : Array.from(room.calledNumbers)
+        if (!selection) {
+          return socket.emit('bingo_result', { success: false, message: 'Card not found' })
+        }
 
-      const result = validateBingo(cardToCheck, numbersToCheck)
+        const cardMatrix = typeof selection.card === 'string' ? JSON.parse(selection.card) : selection.card
 
-      if (result.isValid) {
-        room.status = 'ENDED'
-        if (room.interval) { clearInterval(room.interval); room.interval = null }
-        if (room.countdown) { clearInterval(room.countdown); room.countdown = null }
+        // 2. Validate the pattern
+        const result = validateBingo(cardMatrix, markedNumbers)
 
-        io.to(roomId).emit('game_over', {
-          winner: { userId: player ? player.userId : null, socketId: socket.id },
-          pattern: result.pattern,
-        })
-      } else {
-        socket.emit('bingo_invalid', { message: 'Not a valid bingo' })
+        if (result.isValid) {
+          const prizeAmount = 17
+
+          if (rooms[roomId]) {
+            rooms[roomId].status = 'ENDED'
+            rooms[roomId].winner = userId
+            if (rooms[roomId].interval) { clearInterval(rooms[roomId].interval); rooms[roomId].interval = null }
+            if (rooms[roomId].countdown) { clearInterval(rooms[roomId].countdown); rooms[roomId].countdown = null }
+          }
+
+          socket.emit('bingo_result', {
+            success: true,
+            message: `BINGO! You won ${prizeAmount} ETB with a ${result.pattern}!`,
+            amount: prizeAmount,
+          })
+
+          socket.to(roomId).emit('game_over', { winner: user.first_name })
+        } else {
+          socket.emit('bingo_result', { success: false, message: 'Not a valid Bingo. Keep playing!' })
+        }
+      } catch (err) {
+        console.error('Claim error:', err)
+        socket.emit('bingo_result', { success: false, message: 'Server error validating Bingo' })
       }
     })
 

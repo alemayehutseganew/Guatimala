@@ -35,6 +35,7 @@ const GameScreen = () => {
   const [countdown, setCountdown] = useState(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [toast, setToast] = useState('');
+  const [bingoMessage, setBingoMessage] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Fetch Cards from Backend
@@ -82,6 +83,11 @@ const GameScreen = () => {
       setTimeout(() => setToast(''), 5000);
     });
 
+    socket.on('bingo_result', (data) => {
+      setBingoMessage(data);
+      setTimeout(() => setBingoMessage(null), 4000);
+    });
+
     return () => {
       socket.off('room_update');
       socket.off('countdown_tick');
@@ -89,6 +95,7 @@ const GameScreen = () => {
       socket.off('game_started');
       socket.off('new_number_called');
       socket.off('game_over');
+      socket.off('bingo_result');
     };
   }, [socket, roomId, userId, stake]);
 
@@ -247,7 +254,7 @@ const GameScreen = () => {
           )}
 
           <button 
-            onClick={handleBingoClick}
+            onClick={() => socket.emit('claim_bingo', { roomId, userId, cardId: cardsData[0]?.id, markedNumbers })}
             className="w-full max-w-sm bg-yellow-500 text-[#112A46] font-extrabold text-2xl py-4 rounded-xl shadow-lg"
           >
             BINGO
@@ -257,6 +264,12 @@ const GameScreen = () => {
         </div>
       </div>
       
+      {bingoMessage && (
+        <div className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 px-6 py-4 rounded-xl shadow-2xl font-bold text-center z-50 ${bingoMessage.success ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+          {bingoMessage.message}
+        </div>
+      )}
+
       {toast && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/80 text-white text-3xl font-bold p-8 rounded-xl z-50">
           {toast}
