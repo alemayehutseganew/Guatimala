@@ -1,10 +1,12 @@
-function generateCardMatrix(cardNumber) {
-  const seed = cardNumber
-  const rand = (min, max, i) => {
-    const x = Math.sin(seed * 9301 + i * 49297 + 233280) * 10000
-    return Math.floor((x - Math.floor(x)) * (max - min + 1)) + min
+function getUniqueNumbers(min, max, count) {
+  const nums = new Set()
+  while (nums.size < count) {
+    nums.add(Math.floor(Math.random() * (max - min + 1)) + min)
   }
+  return Array.from(nums)
+}
 
+function generateCardMatrix(cardNumber) {
   const ranges = [
     [1, 15],
     [16, 30],
@@ -13,20 +15,23 @@ function generateCardMatrix(cardNumber) {
     [61, 75],
   ]
 
+  // Generate unique numbers for each column
+  const cols = ranges.map((range) => getUniqueNumbers(range[0], range[1], 5))
+
   const matrix = []
-  for (let row = 0; row < 5; row++) {
-    const r = []
-    for (let col = 0; col < 5; col++) {
-      if (row === 2 && col === 2) {
-        r.push(0) // FREE
+  for (let i = 0; i < 5; i += 1) {
+    const row = []
+    for (let j = 0; j < 5; j += 1) {
+      if (i === 2 && j === 2) {
+        row.push(0) // FREE
       } else {
-        const [min, max] = ranges[col]
-        r.push(rand(min, max, row * 5 + col))
+        row.push(cols[j][i])
       }
     }
-    matrix.push(r)
+    matrix.push(row)
   }
   return matrix
 }
 
-module.exports = { generateCardMatrix }
+module.exports = { generateCardMatrix, getUniqueNumbers }
+
