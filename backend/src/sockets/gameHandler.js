@@ -4,6 +4,8 @@ const { Server } = require('socket.io')
 
 const rooms = {}
 
+const MIN_PLAYERS = 2
+
 function getLetterForNumber(num) {
   if (num <= 15) return 'B'
   if (num <= 30) return 'I'
@@ -91,7 +93,7 @@ function initGameHandler(io) {
         const playerCount = Object.keys(room.players).length
         io.to(roomId).emit('room_update', { playerCount, players: playerCount, stake: room.stake })
 
-        if (playerCount >= 1 && room.status === 'WAITING') {
+        if (playerCount >= MIN_PLAYERS && room.status === 'WAITING') {
           room.status = 'COUNTDOWN'
           let timeLeft = 5
           io.to(roomId).emit('countdown_tick', { timeLeft })
@@ -103,6 +105,14 @@ function initGameHandler(io) {
             if (timeLeft <= 0) {
               clearInterval(countdownInterval)
               room.countdown = null
+
+              const finalPlayerCount = Object.keys(room.players).length
+              if (finalPlayerCount < MIN_PLAYERS) {
+                room.status = 'WAITING'
+                io.to(roomId).emit('waiting_for_players', { message: 'Need 2 players to start' })
+                return
+              }
+
               room.status = 'PLAYING'
               io.to(roomId).emit('game_started')
               startGameLoop(io, roomId)
@@ -120,7 +130,7 @@ function initGameHandler(io) {
       const room = rooms[roomId]
       if (!room) return
       if (room.status !== 'WAITING') return
-      if (Object.keys(room.players).length < 1) return
+      if (Object.keys(room.players).length < MIN_PLAYERS) return
 
       room.status = 'COUNTDOWN'
       let timeLeft = 5
@@ -133,6 +143,14 @@ function initGameHandler(io) {
         if (timeLeft <= 0) {
           clearInterval(countdownInterval)
           room.countdown = null
+
+          const finalPlayerCount = Object.keys(room.players).length
+          if (finalPlayerCount < MIN_PLAYERS) {
+            room.status = 'WAITING'
+            io.to(roomId).emit('waiting_for_players', { message: 'Need 2 players to start' })
+            return
+          }
+
           room.status = 'PLAYING'
           io.to(roomId).emit('game_started')
           startGameLoop(io, roomId)
