@@ -1,30 +1,31 @@
+function getUniqueNumbers(min, max, count) {
+  const nums = new Set();
+  while (nums.size < count) {
+    nums.add(Math.floor(Math.random() * (max - min + 1)) + min);
+  }
+  return Array.from(nums);
+}
+
 function generateSingleCard() {
-  const ranges = [
-    [1, 15],
-    [16, 30],
-    [31, 45],
-    [46, 60],
-    [61, 75],
-  ]
+  const card = [];
+  const ranges = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]];
 
-  const matrix = Array.from({ length: 5 }, () => Array(5).fill(null))
+  // Generate unique columns
+  const cols = ranges.map((range) => getUniqueNumbers(range[0], range[1], 5));
 
-  for (let col = 0; col < 5; col++) {
-    const [min, max] = ranges[col]
-    const nums = new Set()
-    while (nums.size < 5) {
-      nums.add(Math.floor(Math.random() * (max - min + 1)) + min)
+  // Build rows
+  for (let i = 0; i < 5; i += 1) {
+    const row = [];
+    for (let j = 0; j < 5; j += 1) {
+      row.push(cols[j][i]);
     }
-    const arr = [...nums]
-    for (let row = 0; row < 5; row++) {
-      matrix[row][col] = arr[row]
-    }
+    card.push(row);
   }
 
-  // Center square is FREE
-  matrix[2][2] = 'FREE'
+  // Set FREE space
+  card[2][2] = 'FREE';
 
-  return matrix
+  return card;
 }
 
 function generateCardPool(count = 400) {
@@ -42,4 +43,4 @@ function generateCardPool(count = 400) {
   return pool
 }
 
-module.exports = { generateSingleCard, generateCardPool }
+module.exports = { generateSingleCard, generateCardPool, getUniqueNumbers }

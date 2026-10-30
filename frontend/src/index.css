@@ -116,6 +116,10 @@ code {
 
 .bingo-3d-box {
   @apply bg-white rounded-lg;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   box-shadow: 0 4px 0 #9CA3AF;
   transition: transform 0.1s;
 }
