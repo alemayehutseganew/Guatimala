@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalUsers: 0,
     activeGames: 0,
@@ -39,10 +41,10 @@ export default function AdminDashboard() {
   if (loading) return <div className="text-white p-6">Loading dashboard data...</div>;
 
   const metrics = [
-    { id: 'users', title: 'Total Users', value: stats.totalUsers, color: 'text-blue-400', bg: 'bg-blue-500/10', icon: '👥' },
-    { id: 'games', title: 'Active Games', value: stats.activeGames, color: 'text-green-400', bg: 'bg-green-500/10', icon: '🎮' },
-    { id: 'wagered', title: 'Total Wagered', value: `ETB ${stats.totalWagered}`, color: 'text-yellow-400', bg: 'bg-yellow-500/10', icon: '💰' },
-    { id: 'profit', title: 'Platform Profit', value: `ETB ${stats.platformProfit}`, color: 'text-purple-400', bg: 'bg-purple-500/10', icon: '📈' },
+    { id: 'users', title: 'Total Users', value: stats.totalUsers, color: 'text-blue-400', bg: 'bg-blue-500/10', icon: '👥', route: '/admin/users' },
+    { id: 'games', title: 'Active Games', value: stats.activeGames, color: 'text-green-400', bg: 'bg-green-500/10', icon: '🎮', route: '/admin/games' },
+    { id: 'wagered', title: 'Total Wagered', value: `ETB ${stats.totalWagered}`, color: 'text-yellow-400', bg: 'bg-yellow-500/10', icon: '💰', route: '/admin/payments' },
+    { id: 'profit', title: 'Platform Profit', value: `ETB ${stats.platformProfit}`, color: 'text-purple-400', bg: 'bg-purple-500/10', icon: '📈', route: '/admin/payments' },
   ];
 
   return (
@@ -53,7 +55,7 @@ export default function AdminDashboard() {
         {metrics.map((m) => (
           <button
             key={m.id}
-            onClick={() => setSelectedMetric(m.id)}
+            onClick={() => navigate(m.route)}
             className="bg-slate-800 hover:bg-slate-700 transition-all rounded-2xl p-6 border border-slate-700 shadow-lg text-left group flex flex-col justify-between h-32"
           >
             <div className="flex justify-between items-start w-full">
@@ -62,7 +64,10 @@ export default function AdminDashboard() {
                 <span className={m.color}>{m.icon}</span>
               </div>
             </div>
-            <span className="text-2xl font-black text-white">{m.value}</span>
+            <div className="flex justify-between items-end w-full">
+              <span className="text-2xl font-black text-white">{m.value}</span>
+              <span className="text-slate-500 group-hover:text-white transition-colors">→</span>
+            </div>
           </button>
         ))}
       </div>
@@ -96,7 +101,7 @@ export default function AdminDashboard() {
                 <>
                   <p><strong>Total Wagered:</strong> ETB {stats.totalWagered}</p>
                   <div className="bg-slate-900 p-3 rounded-lg text-sm font-mono mt-2">
-                    Math: Sum of all entry fees from the financial ledger.
+                    Math: Sum of all 'ENTRY_FEE' amounts from the financial ledger.
                   </div>
                 </>
               )}
@@ -107,7 +112,7 @@ export default function AdminDashboard() {
                     Math: Total Wagered (ETB {stats.totalWagered}) - Total Payouts (ETB {stats.totalPayouts})<br/>
                     = ETB {stats.platformProfit}
                   </div>
-                  <p className="text-sm text-slate-400 mt-2">This represents the house rake accumulated over time.</p>
+                  <p className="text-sm text-slate-400 mt-2">This represents the house rake (10% cut) accumulated over time.</p>
                 </>
               )}
             </div>
