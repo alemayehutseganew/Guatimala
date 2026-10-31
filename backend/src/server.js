@@ -9,6 +9,7 @@ const paymentsRoutes = require('./routes/payments')
 const walletRoutes = require('./routes/wallet')
 const usersRoutes = require('./routes/users')
 const { setupSocket } = require('./sockets/gameHandler')
+const { launch: launchBot } = require('./bot')
 
 const app = express()
 
@@ -32,6 +33,7 @@ setupSocket(server)
 const PORT = process.env.PORT || 3001
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
+  launchBot()
 })
 
 module.exports = { app, server }
