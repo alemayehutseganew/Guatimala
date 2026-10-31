@@ -173,11 +173,9 @@ function initGameHandler(io) {
         const result = validateBingo(cardMatrix, markedNumbers || [])
 
         if (result.isValid) {
-          const prizeAmount = 17
-          const totalPlayers = rooms[roomId] ? Object.keys(rooms[roomId].players).length : 1
-          const stake = rooms[roomId] ? rooms[roomId].stake : 10
-          const { calculatePayout } = require('../utils/jackpotSplitter')
-          const { payout } = calculatePayout(totalPlayers, stake)
+          const prizePool = rooms[roomId].stake * (rooms[roomId] ? Object.keys(rooms[roomId].players).length : 1)
+          const platformFee = prizePool * 0.15
+          const payoutAmount = prizePool - platformFee
 
           if (rooms[roomId]) {
             rooms[roomId].status = 'ENDED'
@@ -186,24 +184,21 @@ function initGameHandler(io) {
           }
 
           await db.transaction(async (trx) => {
-            const locked = await trx('users').where({ id: user.id }).forUpdate().first()
-            await trx('users').where({ id: user.id }).increment('wallet_balance', payout)
-            const hasLedger = await trx.schema.hasTable('financial_ledger')
-            if (hasLedger) {
-              await trx('financial_ledger').insert({
-                user_id: user.id,
-                type: 'game_win',
-                amount: payout,
-                reference: `BINGO-${roomId}-${user.id}`,
-                created_at: new Date(),
-              })
-            }
+            const winner = await trx('users').where({ id: user.id }).forUpdate().first()
+            await trx('users').where({ id: user.id }).increment('wallet_balance', payoutAmount)
+            await trx('financial_ledger').insert({
+              user_id: user.id,
+              amount: payoutAmount,
+              type: 'WINNING_PAYOUT',
+              reference_id: `ROOM_${roomId}`,
+              created_at: new Date(),
+            })
           })
 
           // Notify winner via bot
           try {
             if (user.telegram_id && bot && bot.telegram) {
-              await bot.telegram.sendMessage(user.telegram_id, `🎉 *BINGO!* 🎉\nYou won *ETB ${payout}*!\nYour new balance has been updated in the app.`, { parse_mode: 'Markdown' })
+              await bot.telegram.sendMessage(user.telegram_id, `🎉 *BINGO!* 🎉\nYou won *ETB ${payoutAmount}*!\nYour new balance has been updated in the app.`, { parse_mode: 'Markdown' })
             }
           } catch (err) {
             console.error('Failed to send bot message to winner:', err)
@@ -224,10 +219,11 @@ function initGameHandler(io) {
           }
 
           socket.emit('bingo_result', {
-            message: `BINGO! You won ${payout} ETB with a ${result.pattern}!`,
-            amount: payout,
+            success: true,
+            message: `BINGO! You won ${payoutAmount} ETB with a ${result.pattern}!`,
+            amount: payoutAmount,
           })
-          socket.to(roomId).emit('game_over', { winner: { userId: user.id, socketId: socket.id, name: user.first_name } })
+          socket.to(roomId).emit('game_over', { winner: { userId: user.id, payout: payoutAmount } })
         } else {
           socket.emit('bingo_result', { success: false, message: 'Not a valid Bingo. Keep playing!' })
         }
