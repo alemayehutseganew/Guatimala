@@ -4,6 +4,7 @@ const db = require('../db')
 const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
 const { adminAuth, JWT_SECRET } = require('../middleware/adminAuth')
+const { archiveOldData } = require('../scripts/archive_old_data')
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex')
@@ -166,5 +167,15 @@ router.post('/payments/:id/approve', adminAuth, async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 })
+
+router.post('/archive-data', adminAuth, async (req, res) => {
+  try {
+    const r = await archiveOldData()
+    res.json({ success: true, ...r })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 
 module.exports = router

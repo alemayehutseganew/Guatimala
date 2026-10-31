@@ -30,7 +30,27 @@ app.use('/api/users', usersRoutes)
 app.use('/api/admin', adminRoutes)
 
 const server = http.createServer(app)
-setupSocket(server)
+const io = setupSocket(server)
+
+// Optional Redis adapter for horizontal scaling
+if (process.env.REDIS_URL) {
+  try {
+    const { createAdapter } = require('@socket.io/redis-adapter')
+    const { createClient } = require('redis')
+    const pubClient = createClient({ url: process.env.REDIS_URL })
+    const subClient = pubClient.duplicate()
+    Promise.all([pubClient.connect(), subClient.connect()])
+      .then(() => {
+        io.adapter(createAdapter(pubClient, subClient))
+        console.log('✅ Redis adapter connected for Socket.io scaling')
+      })
+      .catch((err) => console.error('Redis adapter error:', err))
+  } catch (err) {
+    console.log('⚠️ Redis packages not installed. Using in-memory adapter.')
+  }
+} else {
+  console.log('⚠️ REDIS_URL not set. Using in-memory Socket.io adapter.')
+}
 
 const PORT = process.env.PORT || 3001
 server.listen(PORT, () => {

@@ -178,19 +178,21 @@ function initGameHandler(io) {
             if (rooms[roomId].intervalId) { clearInterval(rooms[roomId].intervalId); rooms[roomId].intervalId = null }
           }
 
-          await db('users').where({ id: user.id }).increment('demo_wallet_balance', payout)
-          await db('users').where({ id: user.id }).increment('wallet_balance', payout)
-
-          const hasLedger = await db.schema.hasTable('financial_ledger')
-          if (hasLedger) {
-            await db('financial_ledger').insert({
-              user_id: user.id,
-              type: 'game_win',
-              amount: payout,
-              reference: `BINGO-${roomId}-${user.id}`,
-              created_at: new Date(),
-            })
-          }
+          await db.transaction(async (trx) => {
+            const locked = await trx('users').where({ id: user.id }).forUpdate().first()
+            await trx('users').where({ id: user.id }).increment('demo_wallet_balance', payout)
+            await trx('users').where({ id: user.id }).increment('wallet_balance', payout)
+            const hasLedger = await trx.schema.hasTable('financial_ledger')
+            if (hasLedger) {
+              await trx('financial_ledger').insert({
+                user_id: user.id,
+                type: 'game_win',
+                amount: payout,
+                reference: `BINGO-${roomId}-${user.id}`,
+                created_at: new Date(),
+              })
+            }
+          })
 
           socket.emit('bingo_result', {
             success: true,
