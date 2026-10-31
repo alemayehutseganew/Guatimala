@@ -166,7 +166,9 @@ const GameScreen = () => {
               <span className="text-7xl font-bold text-[#112A46]">{countdown}</span>
             ) : currentBall ? (
               <div className={`w-32 h-32 rounded-full border-8 flex flex-col items-center justify-center shadow-xl ${getBallColor(currentBall.letter)}`}>
-                <span className="text-2xl font-bold text-white mt-1">{currentBall.letter}</span>
+                <span className="text-2xl font-bold text-white mt-1 ibm-plex-mono-bold-italic">
+                  {currentBall.letter}
+                </span>
                 <span className="text-6xl font-bold text-white">{currentBall.number}</span>
               </div>
             ) : (
