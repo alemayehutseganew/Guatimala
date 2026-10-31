@@ -116,29 +116,37 @@ router.post('/users/:id/adjust-balance', adminAuth, async (req, res) => {
 
 router.get('/games', adminAuth, async (req, res) => {
   try {
-    const rooms = await db('rooms')
-      .select('id', 'stake_amount', 'status', 'winning_pattern', 'created_at')
-      .orderBy('created_at', 'desc')
-      .limit(50)
-    const result = []
-    for (const r of rooms) {
-      const participants = await db('room_participants').where({ room_id: r.id }).count('* as c').first()
-      const winnerRow = await db('room_participants').where({ room_id: r.id, is_winner: true }).first()
-      let winnerName = null
-      if (winnerRow) {
-        const u = await db('users').where({ id: winnerRow.user_id }).first()
-        winnerName = u?.first_name || u?.username || null
-      }
-      result.push({
-        room_id: r.id,
-        stake: r.stake_amount,
-        status: r.status,
-        participants: Number(participants.c),
-        winner: winnerName,
-        created_at: r.created_at,
-      })
-    }
-    res.json(result)
+    const games = await db('rooms')
+      .select(
+        'rooms.id',
+        'rooms.stake_amount',
+        'rooms.status',
+        'rooms.created_at',
+        db.raw('COUNT(room_participants.id) as total_players')
+      )
+      .leftJoin('room_participants', 'rooms.id', 'room_participants.room_id')
+      .groupBy('rooms.id')
+      .orderBy('rooms.created_at', 'desc')
+      .limit(100)
+
+    const gameIds = games.map((g) => g.id)
+    const winners = await db('room_participants')
+      .join('users', 'room_participants.user_id', 'users.id')
+      .whereIn('room_participants.room_id', gameIds)
+      .andWhere('room_participants.is_winner', true)
+      .select('room_participants.room_id', 'users.first_name', 'users.username')
+
+    const winnerMap = {}
+    winners.forEach((w) => {
+      winnerMap[w.room_id] = w.first_name || w.username || 'Unknown'
+    })
+
+    const result = games.map((g) => ({
+      ...g,
+      winner_name: winnerMap[g.id] || 'No Winner / In Progress',
+    }))
+
+    res.json({ games: result })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -146,11 +154,21 @@ router.get('/games', adminAuth, async (req, res) => {
 
 router.get('/payments', adminAuth, async (req, res) => {
   try {
-    const payments = await db('payments')
-      .select('id', 'user_id', 'type', 'provider', 'amount', 'status', 'transaction_reference', 'created_at')
-      .orderBy('created_at', 'desc')
-      .limit(100)
-    res.json(payments)
+    const transactions = await db('financial_ledger')
+      .join('users', 'financial_ledger.user_id', 'users.id')
+      .select(
+        'financial_ledger.id',
+        'users.first_name',
+        'users.username',
+        'financial_ledger.amount',
+        'financial_ledger.type',
+        'financial_ledger.reference',
+        'financial_ledger.created_at'
+      )
+      .orderBy('financial_ledger.created_at', 'desc')
+      .limit(200)
+
+    res.json({ transactions })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
