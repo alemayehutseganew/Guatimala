@@ -26,9 +26,7 @@ export default function CardSelection() {
       try {
         const res = await fetch(`${API_BASE}/api/rooms/${roomId}/cards`)
         const data = await res.json()
-        if (!cancelled) {
-          setCards(data || [])
-        }
+        if (!cancelled) setCards(data || [])
       } catch (e) {
         console.error('Failed to load cards', e)
       } finally {
@@ -61,13 +59,13 @@ export default function CardSelection() {
       await fetch(`${API_BASE}/api/rooms/${roomId}/select-cards`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: Number(userId), ids: selectedIds }),
+        body: JSON.stringify({ userId: Number(userId), cardIds: selectedIds }),
       })
     } catch (e) {
       console.error('Failed to save selected cards', e)
     }
     localStorage.setItem('selectedCards', JSON.stringify(selectedIds))
-    localStorage.setItem('selectedids', JSON.stringify(selectedIds))
+    localStorage.setItem('selectedCardIds', JSON.stringify(selectedIds))
     localStorage.setItem('stake', stake)
     navigate(`/game?stake=${stake}&roomId=${roomId}`)
   }
@@ -146,7 +144,7 @@ export default function CardSelection() {
             </button>
 
             <h3 className="text-xl font-bold text-[#112A46] mb-4 text-center">
-              Card {previewCard?.id || previewCard?.id}
+              Card {previewCard?.id}
             </h3>
 
             <div className="grid grid-cols-5 gap-1 mb-2">
