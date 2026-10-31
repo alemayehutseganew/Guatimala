@@ -206,6 +206,14 @@ router.post('/payments/:id/approve', adminAuth, async (req, res) => {
   }
 })
 
+router.post('/reset-balances', adminAuth, async (req, res) => {
+  try {
+    await db('users').update({ wallet_balance: 0 })
+    res.json({ success: true, message: 'All wallet balances reset to 0' })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
 router.post('/archive-data', adminAuth, async (req, res) => {
   try {
     const r = await archiveOldData()

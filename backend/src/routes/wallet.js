@@ -9,7 +9,7 @@ router.get('/balance', async (req, res) => {
     const { userId } = req.query
     const user = await db('users').where({ id: userId }).orWhere({ telegram_id: userId }).first()
     if (!user) return res.status(404).json({ error: 'User not found' })
-    res.json({ balance: user.demo_wallet_balance || 0 })
+    res.json({ balance: user.wallet_balance || 0 })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

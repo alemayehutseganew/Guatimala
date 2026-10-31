@@ -187,7 +187,6 @@ function initGameHandler(io) {
 
           await db.transaction(async (trx) => {
             const locked = await trx('users').where({ id: user.id }).forUpdate().first()
-            await trx('users').where({ id: user.id }).increment('demo_wallet_balance', payout)
             await trx('users').where({ id: user.id }).increment('wallet_balance', payout)
             const hasLedger = await trx.schema.hasTable('financial_ledger')
             if (hasLedger) {

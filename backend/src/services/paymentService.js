@@ -82,7 +82,6 @@ async function processDeposit(userId, amount, reference) {
       provider_response: { payerName: verify.payerName },
     })
     await trx('users').where({ id: userId }).increment('wallet_balance', verify.amount)
-    await trx('users').where({ id: userId }).increment('demo_wallet_balance', verify.amount)
     const hasLedger = await trx.schema.hasTable('financial_ledger')
     if (hasLedger) {
       await trx('financial_ledger').insert({
@@ -94,7 +93,7 @@ async function processDeposit(userId, amount, reference) {
       })
     }
     const u = await trx('users').where({ id: userId }).first()
-    newBalance = u.demo_wallet_balance
+    newBalance = u.wallet_balance
   })
 
   return { success: true, newBalance }

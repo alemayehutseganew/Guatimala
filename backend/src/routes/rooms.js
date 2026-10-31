@@ -39,14 +39,13 @@ router.post('/join', async (req, res) => {
 
       const result = await db.transaction(async (trx) => {
         const lockedUser = await trx('users').where({ id: user.id }).forUpdate().first()
-        const currentBalance = Number(lockedUser.wallet_balance || lockedUser.demo_wallet_balance || 0)
+        const currentBalance = Number(lockedUser.wallet_balance || 0)
 
         if (currentBalance < entryFee) {
-          throw new Error('Insufficient balance')
+          throw new Error('Insufficient real balance. Please deposit funds.')
         }
 
         await trx('users').where({ id: user.id }).decrement('wallet_balance', entryFee)
-        await trx('users').where({ id: user.id }).decrement('demo_wallet_balance', entryFee)
 
         const hasLedger = await trx.schema.hasTable('financial_ledger')
         if (hasLedger) {

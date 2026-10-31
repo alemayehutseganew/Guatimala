@@ -171,7 +171,12 @@ bot.on('text', async (ctx) => {
       }
 
       if (Number(user.wallet_balance) < amount) {
-        return ctx.reply('❌ Insufficient balance for this withdrawal.')
+        return ctx.reply('❌ Insufficient real balance. You only have ETB ' + user.wallet_balance + '.')
+      }
+
+      const pending = await db('payments').where({ user_id: user.id, type: 'withdrawal', status: 'pending' }).first()
+      if (pending) {
+        return ctx.reply('❌ You already have a pending withdrawal request. Please wait for it to be processed.')
       }
 
       await db.transaction(async (trx) => {
