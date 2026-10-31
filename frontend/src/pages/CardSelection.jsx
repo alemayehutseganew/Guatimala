@@ -105,19 +105,6 @@ export default function CardSelection() {
         })}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-[#0d2238] p-3 flex items-center justify-between gap-2 z-40">
-        <div className="text-xs">
-          Cards Selected: {selectedCards.length} / 2
-        </div>
-        <button
-          onClick={handlePlayGame}
-          disabled={selectedCards.length === 0}
-          className="bg-green-500 text-white font-bold px-4 py-2 rounded disabled:opacity-50"
-        >
-          Play Game
-        </button>
-      </div>
-
       {previewCard && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-4 w-11/12 max-w-sm mx-auto shadow-2xl relative">
@@ -154,10 +141,26 @@ export default function CardSelection() {
             </div>
 
             <button
-              onClick={() => confirmCard(previewCard)}
-              className="w-full bg-[#112A46] text-white font-bold py-3 rounded-lg shadow-md hover:bg-[#1e3a5f]"
+              onClick={async () => {
+                const updatedCards = [...selectedCards, previewCard]
+                try {
+                  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+                  await fetch(`${API_URL}/api/rooms/${roomId}/select-cards`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      userId: localStorage.getItem('dbUserId'),
+                      cardIds: updatedCards.map((c) => c.id)
+                    })
+                  })
+                  navigate(`/game?roomId=${roomId}&stake=${stake}`)
+                } catch (err) {
+                  console.error('Failed to save card:', err)
+                }
+              }}
+              className="w-full mt-4 bg-green-600 text-white font-bold text-lg py-3 rounded-lg shadow-lg hover:bg-green-700"
             >
-              {selectedCards.includes(previewCard.id) ? 'Deselect Card' : 'Confirm Card'}
+              Confirm & Play
             </button>
           </div>
         </div>
