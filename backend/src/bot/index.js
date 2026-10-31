@@ -76,14 +76,17 @@ bot.command('balance', async (ctx) => {
 })
 bot.command('help', (ctx) => ctx.reply('📖 How to Play GOBINGO\n\n1. Open the Mini App.\n2. Select a stake.\n3. Choose a card.\n4. Wait for game start.\n5. Tap numbers when called.\n6. Complete a line and press BINGO!\n\nGood luck!', { parse_mode: 'Markdown' }))
 // Deposit flow
-bot.command('deposit', (ctx) => {
+bot.command('deposit', async (ctx) => {
+  const hasLang = await ensureLanguage(ctx, 'deposit')
+  if (!hasLang) return
   userStates[ctx.from.id] = 'WAITING_FOR_RECEIPT'
-  ctx.reply('💳 To Deposit:\n\n1. Open your Telebirr app\n2. Send money to: 0963184624\n3. Copy the SMS you receive\n\n👇 Now paste the full SMS here:')
+  ctx.reply('💳 *To Deposit:*\n\n👤 *Name:* Alemayehu Tseganew\n📱 *Telebirr:* 0963184624\n\n1. Open your Telebirr app\n2. Send money to the number above\n3. Copy the SMS you receive\n\n👇 Now paste the full SMS here:', { parse_mode: 'Markdown' })
 })
+
 bot.action('menu_deposit', async (ctx) => {
   await ctx.answerCbQuery()
   userStates[ctx.from.id] = 'WAITING_FOR_RECEIPT'
-  ctx.reply('💳 To Deposit:\n\n1. Open your Telebirr app\n2. Send money to: 0963184624\n3. Copy the SMS you receive\n\n👇 Now paste the full SMS here:')
+  ctx.reply('💳 *To Deposit:*\n\n👤 *Name:* Alemayehu Tseganew\n📱 *Telebirr:* 0963184624\n\n1. Open your Telebirr app\n2. Send money to the number above\n3. Copy the SMS you receive\n\n👇 Now paste the full SMS here:', { parse_mode: 'Markdown' })
 })
 
 // Withdraw flow
