@@ -7,6 +7,8 @@ const rooms = {}
 function initGameHandler(io) {
   io.on('connection', (socket) => {
     socket.on('join_room', async ({ roomId, userId, stake }) => {
+  console.log(`[Game] join_room received: roomId=${roomId}, userId=${userId}`)
+
       try {
         let user = null
         if (userId) {
@@ -32,7 +34,7 @@ function initGameHandler(io) {
         socket.join(roomId)
 
         const playerCount = Object.keys(rooms[roomId].players).length
-        console.log(`[Game] Player ${user.id} joined ${roomId}. Total: ${playerCount}`)
+        console.log(`[Game] Total players in ${roomId}: ${playerCount}`)
 
         io.to(roomId).emit('room_update', { players: playerCount, stake: rooms[roomId].stake })
 

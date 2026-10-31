@@ -53,8 +53,19 @@ const GameScreen = () => {
 
   // Socket Listeners
   useEffect(() => {
-    socket.emit('join_room', { roomId, userId, stake });
-    socket.emit('get_my_cards', { roomId, userId });
+    if (!userId) return;
+
+    const handleJoin = () => {
+      socket.emit('join_room', { roomId, userId, stake });
+      socket.emit('get_my_cards', { roomId, userId });
+      console.log('Emitted join_room for:', roomId, userId);
+    };
+
+    if (socket.connected) {
+      handleJoin();
+    } else {
+      socket.on('connect', handleJoin);
+    }
 
     socket.on('room_update', (data) => setPlayersCount(data.players || data.playerCount || 0));
     socket.on('countdown_tick', (data) => setCountdown(data.timeLeft));
@@ -64,7 +75,7 @@ const GameScreen = () => {
         setCardsData(data.cards);
       }
     });
-    
+
     socket.on('game_started', () => {
       setCountdown(null);
       setGameStarted(true);
@@ -89,6 +100,7 @@ const GameScreen = () => {
     });
 
     return () => {
+      socket.off('connect', handleJoin);
       socket.off('room_update');
       socket.off('countdown_tick');
       socket.off('my_cards');
@@ -97,7 +109,7 @@ const GameScreen = () => {
       socket.off('game_over');
       socket.off('bingo_result');
     };
-  }, [socket, roomId, userId, stake]);
+  }, [socket, roomId, userId, stake, soundEnabled]);
 
   const speakNumber = (number, letter) => {
     if (!window.speechSynthesis) return
