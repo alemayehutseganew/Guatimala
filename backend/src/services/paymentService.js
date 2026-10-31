@@ -84,26 +84,53 @@ function parseReceipt(text) {
 }
 
 async function verifyTelebirrReceipt(reference) {
-  const text = await fetchReceiptHtml(reference)
-  if (!text) return { success: false, error: 'Receipt not found or geo-blocked' }
-  const parsed = parseReceipt(text)
-  if (!parsed) return { success: false, error: 'Could not parse receipt' }
-  if (parsed.status && parsed.status.toLowerCase() !== 'completed') {
-    return { success: false, error: 'Transaction not completed' }
+  try {
+    const url = `https://transactioninfo.ethiotelecom.et/receipt/${reference}`
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    })
+
+    if (!response.ok) {
+      return { success: false, error: 'Receipt not found on Telebirr servers.' }
+    }
+
+    const html = await response.text()
+
+    const amountMatch = html.match(/(?:paid|transferred|Amount)[^\d]*([0-9]+\.[0-9]{2})/i)
+    const trueAmount = amountMatch ? parseFloat(amountMatch[1]) : null
+
+    const receiverMatch = html.match(/(?:to|Credited Party)[^A-Z]*([A-Z][A-Za-z ]+)/i)
+    const trueReceiver = receiverMatch ? receiverMatch[1].trim() : null
+
+    const statusMatch = html.match(/(?:status|Status)[^\w]*(Completed|Success|Pending|Failed)/i)
+    const status = statusMatch ? statusMatch[1] : 'Unknown'
+
+    if (!trueAmount) {
+      return { success: false, error: 'Could not verify amount from Telebirr.' }
+    }
+
+    if (status !== 'Completed' && status !== 'Success') {
+      return { success: false, error: `Transaction status is ${status}, not completed.` }
+    }
+
+    const OUR_NAME = 'Alemayehu'
+    if (trueReceiver && !trueReceiver.toLowerCase().includes(OUR_NAME.toLowerCase())) {
+      return { success: false, error: 'This receipt was not sent to our platform account.' }
+    }
+
+    return {
+      success: true,
+      amount: trueAmount,
+      receiver: trueReceiver,
+      status: status,
+      officialReceipt: true
+    }
+  } catch (err) {
+    console.error('Telebirr verification error:', err.message)
+    return { success: false, error: 'Unable to reach Telebirr servers. Please try again or contact support.' }
   }
-
-  const OUR_NUMBER = process.env.TELEBIRR_RECEIVER_NUMBER || '0963184624'
-  const OUR_NAME = 'GOBINGO'
-  const creditedParty = parsed.creditedParty || ''
-  const isReceiverCorrect =
-    creditedParty.includes(OUR_NUMBER.substring(1)) ||
-    creditedParty.toLowerCase().includes(OUR_NAME.toLowerCase())
-
-  if (!isReceiverCorrect) {
-    return { success: false, error: 'This receipt was not sent to the platform account.' }
-  }
-
-  return { success: true, amount: parsed.amount, payerName: parsed.payerName }
 }
 
 async function processDeposit(userId, amount, reference) {

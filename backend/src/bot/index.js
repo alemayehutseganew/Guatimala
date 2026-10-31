@@ -1,6 +1,6 @@
 const { Telegraf } = require('telegraf')
 const db = require('../db')
-const { parseTelebirrSMS } = require('../services/paymentService')
+const { parseTelebirrSMS, verifyTelebirrReceipt } = require('../services/paymentService')
 
 const API_BASE = process.env.API_URL || 'http://localhost:3001'
 const userStates = {}
@@ -123,55 +123,55 @@ bot.on('text', async (ctx) => {
 
   if (state === 'WAITING_FOR_RECEIPT') {
     const smsText = ctx.message.text
-    const parsedData = parseTelebirrSMS(smsText)
-
-    if (!parsedData) {
+    const parsedFromSMS = parseTelebirrSMS(smsText)
+    if (!parsedFromSMS) {
       return ctx.reply('❌ Invalid receipt format. Please copy the entire SMS you received from Telebirr and paste it here.')
     }
 
-    try {
-      const existingPayment = await db('payments').where({ transaction_reference: parsedData.transactionId }).first()
-      if (existingPayment) {
-        return ctx.reply('❌ This Telebirr receipt has already been used.')
-      }
-
-      const user = await db('users').where({ telegram_id: ctx.from.id }).first()
-      if (!user) {
-        return ctx.reply('❌ User not found. Please open the Mini App first to register.')
-      }
-
-      await db.transaction(async (trx) => {
-        await trx('payments').insert({
-          user_id: user.id,
-          amount: parsedData.amount,
-          transaction_reference: parsedData.transactionId,
-          provider: 'telebirr',
-          status: 'completed',
-          type: 'deposit',
-          provider_response: { payerName: parsedData.payerName },
-        })
-
-        await trx('users').where({ id: user.id }).increment('wallet_balance', parsedData.amount)
-
-        const hasLedger = await trx.schema.hasTable('financial_ledger')
-        if (hasLedger) {
-          await trx('financial_ledger').insert({
-            user_id: user.id,
-            amount: parsedData.amount,
-            type: 'DEPOSIT',
-            reference: parsedData.transactionId,
-            created_at: new Date(),
-          })
-        }
-      })
-
-      const updatedUser = await db('users').where({ id: user.id }).first()
-      ctx.reply(`✅ Deposit of ETB ${Number(parsedData.amount).toFixed(2)} successful!\n\nYour new balance is ETB ${Number(updatedUser.wallet_balance).toFixed(2)}.`)
-    } catch (err) {
-      console.error('Bot Deposit Error:', err)
-      ctx.reply('❌ An error occurred while processing your deposit. Please try again later.')
+    const official = await verifyTelebirrReceipt(parsedFromSMS.transactionId)
+    if (!official.success) {
+      return ctx.reply(`❌ Verification failed: ${official.error}`)
     }
 
+    if (Math.abs(official.amount - parsedFromSMS.amount) > 0.01) {
+      return ctx.reply(`❌ Amount mismatch. Your SMS says ${parsedFromSMS.amount} ETB but Telebirr shows ${official.amount} ETB.`)
+    }
+
+    const existing = await db('payments').where({ transaction_reference: parsedFromSMS.transactionId }).first()
+    if (existing) {
+      return ctx.reply('❌ This Telebirr receipt has already been used.')
+    }
+
+    const user = await db('users').where({ telegram_id: ctx.from.id }).first()
+    if (!user) {
+      return ctx.reply('❌ User not found. Please open the Mini App first to register.')
+    }
+
+    await db.transaction(async (trx) => {
+      await trx('payments').insert({
+        user_id: user.id,
+        amount: official.amount,
+        transaction_reference: parsedFromSMS.transactionId,
+        provider: 'telebirr',
+        status: 'completed',
+        type: 'deposit',
+        provider_response: { payerName: official.receiver },
+      })
+      await trx('users').where({ id: user.id }).increment('wallet_balance', official.amount)
+      const hasLedger = await trx.schema.hasTable('financial_ledger')
+      if (hasLedger) {
+        await trx('financial_ledger').insert({
+          user_id: user.id,
+          amount: official.amount,
+          type: 'DEPOSIT',
+          reference: parsedFromSMS.transactionId,
+          created_at: new Date(),
+        })
+      }
+    })
+
+    const updatedUser = await db('users').where({ id: user.id }).first()
+    ctx.reply(`✅ Deposit of ETB ${official.amount.toFixed(2)} verified and added to your wallet!\n\nYour new balance is ETB ${Number(updatedUser.wallet_balance).toFixed(2)}.`)
     delete userStates[ctx.from.id]
     return
   }
