@@ -1,66 +1,126 @@
-import { useEffect, useState } from 'react'
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+import { useEffect, useState } from 'react';
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState(null)
-  const token = localStorage.getItem('adminToken')
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeGames: 0,
+    totalWagered: '0.00',
+    totalPayouts: '0.00',
+    platformProfit: '0.00'
+  });
+  const [loading, setLoading] = useState(true);
+  const [selectedMetric, setSelectedMetric] = useState(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/admin/stats`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then(setStats)
-      .catch(() => {})
-  }, [token])
+    const fetchStats = async () => {
+      try {
+        const token = localStorage.getItem('adminToken');
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/stats`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        setStats({
+          totalUsers: data.totalUsers || 0,
+          activeGames: data.activeGames || 0,
+          totalWagered: parseFloat(data.totalWagered || 0).toFixed(2),
+          totalPayouts: parseFloat(data.totalPayouts || 0).toFixed(2),
+          platformProfit: parseFloat(data.platformProfit || 0).toFixed(2)
+        });
+      } catch (err) {
+        console.error('Failed to load stats', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
 
-  if (!stats) return <div className="text-white">Loading...</div>
+  if (loading) return <div className="text-white p-6">Loading dashboard data...</div>;
 
-  const cards = [
-    { label: 'Total Users', value: stats.totalUsers },
-    { label: 'Active Games', value: stats.activeGames },
-    { label: 'Total Wagered', value: stats.totalWagered },
-    { label: 'Platform Profit', value: stats.platformProfit },
-  ]
+  const metrics = [
+    { id: 'users', title: 'Total Users', value: stats.totalUsers, color: 'text-blue-400', bg: 'bg-blue-500/10', icon: '👥' },
+    { id: 'games', title: 'Active Games', value: stats.activeGames, color: 'text-green-400', bg: 'bg-green-500/10', icon: '🎮' },
+    { id: 'wagered', title: 'Total Wagered', value: `ETB ${stats.totalWagered}`, color: 'text-yellow-400', bg: 'bg-yellow-500/10', icon: '💰' },
+    { id: 'profit', title: 'Platform Profit', value: `ETB ${stats.platformProfit}`, color: 'text-purple-400', bg: 'bg-purple-500/10', icon: '📈' },
+  ];
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4 text-white">Dashboard</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-lg relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-6xl">👥</div>
-          <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Total Users</h3>
-          <p className="text-4xl font-black text-white">{stats.totalUsers}</p>
-          <div className="mt-4 h-1 w-full bg-slate-700 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500 w-3/4"></div>
-          </div>
-        </div>
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-lg relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-6xl">🎮</div>
-          <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Active Games</h3>
-          <p className="text-4xl font-black text-white">{stats.activeGames}</p>
-          <div className="mt-4 h-1 w-full bg-slate-700 rounded-full overflow-hidden">
-            <div className="h-full bg-green-500 w-2/4"></div>
-          </div>
-        </div>
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-lg relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-6xl">💰</div>
-          <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Total Wagered</h3>
-          <p className="text-4xl font-black text-white">ETB {stats.totalWagered}</p>
-          <div className="mt-4 h-1 w-full bg-slate-700 rounded-full overflow-hidden">
-            <div className="h-full bg-yellow-500 w-4/5"></div>
-          </div>
-        </div>
-        <div className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-lg relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity text-6xl">📈</div>
-          <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider mb-2">Platform Profit</h3>
-          <p className="text-4xl font-black text-white">ETB {stats.platformProfit}</p>
-          <div className="mt-4 h-1 w-full bg-slate-700 rounded-full overflow-hidden">
-            <div className="h-full bg-purple-500 w-1/2"></div>
-          </div>
-        </div>
+    <div className="p-4 lg:p-8">
+      <h1 className="text-3xl font-bold text-white mb-8">Dashboard Overview</h1>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {metrics.map((m) => (
+          <button
+            key={m.id}
+            onClick={() => setSelectedMetric(m.id)}
+            className="bg-slate-800 hover:bg-slate-700 transition-all rounded-2xl p-6 border border-slate-700 shadow-lg text-left group flex flex-col justify-between h-32"
+          >
+            <div className="flex justify-between items-start w-full">
+              <span className="text-slate-400 font-semibold">{m.title}</span>
+              <div className={`p-2 rounded-lg ${m.bg}`}>
+                <span className={m.color}>{m.icon}</span>
+              </div>
+            </div>
+            <span className="text-2xl font-black text-white">{m.value}</span>
+          </button>
+        ))}
       </div>
+
+      {selectedMetric && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-700 shadow-2xl relative">
+            <button 
+              onClick={() => setSelectedMetric(null)} 
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              ✕
+            </button>
+            
+            <h2 className="text-2xl font-bold text-white mb-4">Metric Details</h2>
+            
+            <div className="space-y-4 text-slate-300">
+              {selectedMetric === 'users' && (
+                <>
+                  <p><strong>Total Users:</strong> {stats.totalUsers}</p>
+                  <p className="text-sm text-slate-400">This is the total number of unique Telegram accounts that have registered in the database.</p>
+                </>
+              )}
+              {selectedMetric === 'games' && (
+                <>
+                  <p><strong>Active Games:</strong> {stats.activeGames}</p>
+                  <p className="text-sm text-slate-400">This counts the number of game rooms currently in the "WAITING", "COUNTDOWN", or "PLAYING" state.</p>
+                </>
+              )}
+              {selectedMetric === 'wagered' && (
+                <>
+                  <p><strong>Total Wagered:</strong> ETB {stats.totalWagered}</p>
+                  <div className="bg-slate-900 p-3 rounded-lg text-sm font-mono mt-2">
+                    Math: Sum of all entry fees from the financial ledger.
+                  </div>
+                </>
+              )}
+              {selectedMetric === 'profit' && (
+                <>
+                  <p><strong>Platform Profit:</strong> ETB {stats.platformProfit}</p>
+                  <div className="bg-slate-900 p-3 rounded-lg text-sm font-mono mt-2">
+                    Math: Total Wagered (ETB {stats.totalWagered}) - Total Payouts (ETB {stats.totalPayouts})<br/>
+                    = ETB {stats.platformProfit}
+                  </div>
+                  <p className="text-sm text-slate-400 mt-2">This represents the house rake accumulated over time.</p>
+                </>
+              )}
+            </div>
+            
+            <button 
+              onClick={() => setSelectedMetric(null)}
+              className="mt-6 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }

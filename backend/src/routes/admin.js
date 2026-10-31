@@ -71,14 +71,15 @@ router.get('/stats', adminAuth, async (req, res) => {
       .where({ type: 'game_win' })
       .sum('amount as total')
       .first()
-    const totalPayouts = parseFloat(payoutsResult.total || 0)
+    const totalPayouts = parseFloat(payoutsResult.total || 0).toFixed(2)
 
-    const platformProfit = (parseFloat(totalWagered) - totalPayouts).toFixed(2)
+    const platformProfit = (parseFloat(totalWagered) - parseFloat(totalPayouts)).toFixed(2)
 
     res.json({
       totalUsers,
       activeGames,
       totalWagered,
+      totalPayouts,
       platformProfit,
     })
   } catch (err) {

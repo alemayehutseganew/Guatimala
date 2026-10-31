@@ -31,7 +31,7 @@ export default function AdminLayout() {
   return (
     <div className="min-h-screen bg-slate-900 flex">
       <div className="lg:hidden fixed top-0 w-full bg-slate-800 z-50 p-4 flex justify-between items-center shadow-lg">
-        <h1 className="text-white font-bold text-xl">Admin Panel</h1>
+        <span className="text-white text-2xl">🎮</span>
         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="text-white">
           {isSidebarOpen ? '✕' : '☰'}
         </button>
