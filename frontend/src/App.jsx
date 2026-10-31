@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Lobby from './pages/Lobby'
 import CardSelection from './pages/CardSelection'
 import GameScreen from './pages/GameScreen'
@@ -8,6 +8,12 @@ import Settings from './pages/Settings'
 import GameHistory from './pages/GameHistory'
 import Leaderboard from './pages/Leaderboard'
 import { LanguageProvider } from './LanguageContext'
+import AdminLogin from './admin/AdminLogin'
+import AdminLayout from './admin/AdminLayout'
+import AdminDashboard from './admin/AdminDashboard'
+import AdminUsers from './admin/AdminUsers'
+import AdminGames from './admin/AdminGames'
+import AdminPayments from './admin/AdminPayments'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
@@ -48,6 +54,18 @@ export default function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/history" element={<GameHistory />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route
+          path="/admin"
+          element={localStorage.getItem('adminToken') ? <AdminLayout /> : <Navigate to="/admin/login" />}
+        >
+          <Route index element={<Navigate to="dashboard" />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="games" element={<AdminGames />} />
+          <Route path="payments" element={<AdminPayments />} />
+        </Route>
+
         </Routes>
       </BrowserRouter>
     </LanguageProvider>
