@@ -1,6 +1,7 @@
 const db = require('../db')
 const { validateBingo } = require('../utils/bingoValidator')
 const { Server } = require('socket.io')
+const { bot } = require('../bot/index')
 
 const rooms = {}
 
@@ -200,8 +201,30 @@ function initGameHandler(io) {
             }
           })
 
+          // Notify winner via bot
+          try {
+            if (user.telegram_id && bot && bot.telegram) {
+              await bot.telegram.sendMessage(user.telegram_id, `🎉 *BINGO!* 🎉\nYou won *ETB ${payout}*!\nYour new balance has been updated in the app.`, { parse_mode: 'Markdown' })
+            }
+          } catch (err) {
+            console.error('Failed to send bot message to winner:', err)
+          }
+
+          if (rooms[roomId]) {
+            for (const pid in rooms[roomId].players) {
+              const p = rooms[roomId].players[pid]
+              if (p.userId && p.userId !== user.id) {
+                try {
+                  const loser = await db('users').where({ id: p.userId }).first()
+                  if (loser && loser.telegram_id && bot && bot.telegram) {
+                    await bot.telegram.sendMessage(loser.telegram_id, '😔 Game over. A winner has claimed Bingo. Better luck next time!')
+                  }
+                } catch (err) {}
+              }
+            }
+          }
+
           socket.emit('bingo_result', {
-            success: true,
             message: `BINGO! You won ${payout} ETB with a ${result.pattern}!`,
             amount: payout,
           })
