@@ -45,7 +45,7 @@ const GameScreen = () => {
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
-          setCardsData(data.map(c => ({ id: c.card_number, matrix: c.matrix })));
+          setCardsData(data.map(c => ({ id: c.id, matrix: c.matrix })));
         }
       })
       .catch(err => console.error("Failed to fetch cards:", err));
