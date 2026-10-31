@@ -1,4 +1,4 @@
-function calculatePayout(totalPlayers, stake, platformFeePercent = 10) {
+function calculatePayout(totalPlayers, stake, platformFeePercent = 15) {
   const prizePool = totalPlayers * stake
   const platformFee = (prizePool * platformFeePercent) / 100
   const payout = prizePool - platformFee

@@ -112,7 +112,7 @@ export default function AdminDashboard() {
                     Math: Total Wagered (ETB {stats.totalWagered}) - Total Payouts (ETB {stats.totalPayouts})<br/>
                     = ETB {stats.platformProfit}
                   </div>
-                  <p className="text-sm text-slate-400 mt-2">This represents the house rake (10% cut) accumulated over time.</p>
+                  <p className="text-sm text-slate-400 mt-2">This represents the house rake (15% cut) accumulated over time.</p>
                 </>
               )}
             </div>
