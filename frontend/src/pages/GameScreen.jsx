@@ -123,9 +123,10 @@ const GameScreen = () => {
   }
 
   const handleDaub = (num) => {
-    if (!calledNumbers.includes(num)) return;
-    if (markedNumbers.includes(num)) return;
-    setMarkedNumbers(prev => [...prev, num]);
+    if (!calledNumbers.map(Number).includes(Number(num))) return;
+    if (markedNumbers.map(Number).includes(Number(num))) return;
+    setMarkedNumbers(prev => [...prev, Number(num)]);
+    console.log('Daubed:', num);
   };
 
   const handleBingoClick = () => {
