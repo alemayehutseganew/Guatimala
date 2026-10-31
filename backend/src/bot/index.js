@@ -28,7 +28,10 @@ function getMainMenu() {
           { text: '💳 Deposit', callback_data: 'menu_deposit' }
         ],
         [
-          { text: '🏠 My Room', callback_data: 'menu_room' },
+          { text: '💸 Withdraw', callback_data: 'menu_withdraw' },
+          { text: '🏠 My Room', callback_data: 'menu_room' }
+        ],
+        [
           { text: '❓ Help', callback_data: 'menu_help' }
         ]
       ]
@@ -66,6 +69,18 @@ bot.action('menu_balance', async (ctx) => {
 bot.action('menu_deposit', async (ctx) => {
   await ctx.answerCbQuery()
   ctx.reply('To deposit funds, please open the Mini App and go to the Wallet section.', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: 'Open Wallet in App', web_app: { url: 'https://guatimala.vercel.app/wallet' } }]
+      ]
+    }
+  })
+})
+
+// Handle "Withdraw"
+bot.action('menu_withdraw', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.reply('To withdraw funds, please open the Mini App and navigate to the Wallet section. Withdrawals are processed securely there.', {
     reply_markup: {
       inline_keyboard: [
         [{ text: 'Open Wallet in App', web_app: { url: 'https://guatimala.vercel.app/wallet' } }]
