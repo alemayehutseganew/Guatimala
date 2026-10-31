@@ -78,12 +78,12 @@ bot.command('help', (ctx) => ctx.reply('📖 How to Play GOBINGO\n\n1. Open the 
 // Deposit flow
 bot.command('deposit', (ctx) => {
   userStates[ctx.from.id] = 'WAITING_FOR_RECEIPT'
-  ctx.reply('Please send the entire SMS text you received from Telebirr (or the Transaction ID).')
+  ctx.reply('💳 To Deposit:\n\n1. Open your Telebirr app\n2. Send money to: 0963184624\n3. Copy the SMS you receive\n\n👇 Now paste the full SMS here:')
 })
 bot.action('menu_deposit', async (ctx) => {
   await ctx.answerCbQuery()
   userStates[ctx.from.id] = 'WAITING_FOR_RECEIPT'
-  ctx.reply('Please send the entire SMS text you received from Telebirr (or the Transaction ID).')
+  ctx.reply('💳 To Deposit:\n\n1. Open your Telebirr app\n2. Send money to: 0963184624\n3. Copy the SMS you receive\n\n👇 Now paste the full SMS here:')
 })
 
 // Withdraw flow

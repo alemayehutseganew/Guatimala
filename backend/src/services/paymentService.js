@@ -41,12 +41,17 @@ function parseReceipt(text) {
     text.match(/(?:Payer|Payer Name|Customer)[:\s]*([A-Za-z ]+)/i) ||
     text.match(/Name[:\s]*([A-Za-z ]+)/i)
 
+  const creditedPartyMatch =
+    text.match(/(?:to|credited to|receiver|paid to)[:\s]*([0-9]{9,}|[A-Za-z ]+)/i) ||
+    text.match(/09[0-9]{8}/)
+
   const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null
   const status = statusMatch ? statusMatch[1].trim() : 'Completed'
   const payerName = payerMatch ? payerMatch[1].trim() : 'Unknown'
+  const creditedParty = creditedPartyMatch ? creditedPartyMatch[0] : text
 
   if (!amount) return null
-  return { amount, status, payerName }
+  return { amount, status, payerName, creditedParty }
 }
 
 async function verifyTelebirrReceipt(reference) {
@@ -57,6 +62,18 @@ async function verifyTelebirrReceipt(reference) {
   if (parsed.status && parsed.status.toLowerCase() !== 'completed') {
     return { success: false, error: 'Transaction not completed' }
   }
+
+  const OUR_NUMBER = process.env.TELEBIRR_RECEIVER_NUMBER || '0963184624'
+  const OUR_NAME = 'GOBINGO'
+  const creditedParty = parsed.creditedParty || ''
+  const isReceiverCorrect =
+    creditedParty.includes(OUR_NUMBER.substring(1)) ||
+    creditedParty.toLowerCase().includes(OUR_NAME.toLowerCase())
+
+  if (!isReceiverCorrect) {
+    return { success: false, error: 'This receipt was not sent to the platform account.' }
+  }
+
   return { success: true, amount: parsed.amount, payerName: parsed.payerName }
 }
 
