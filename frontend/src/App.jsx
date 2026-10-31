@@ -16,6 +16,7 @@ import AdminGames from './admin/AdminGames'
 import AdminPayments from './admin/AdminPayments'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+console.log("🚀 API URL:", import.meta.env.VITE_API_URL)
 
 export default function App() {
   useEffect(() => {

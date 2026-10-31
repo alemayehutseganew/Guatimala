@@ -14,11 +14,19 @@ const { launch: launchBot } = require('./bot')
 
 const app = express()
 
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
 app.use(cors({
-  origin: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-telegram-init-data', 'x-dev-user'],
+  origin: [
+    'http://localhost:5173',
+    'https://guatimala.vercel.app',
+    /\.vercel\.app$/
+  ],
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-telegram-init-data']
 }))
 app.use(express.json())
 
