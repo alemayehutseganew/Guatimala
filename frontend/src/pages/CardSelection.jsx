@@ -173,13 +173,13 @@ export default function CardSelection() {
 
             <div className="flex justify-between gap-2 mt-4">
               <button
-                onClick={() => handleAssignSlot(1, previewCard)}
+                onClick={() => { handleAssignSlot(1, previewCard); setPreviewCard(null) }}
                 className={`flex-1 py-2 rounded font-bold ${selectedSlots.slot1?.id === previewCard.id ? 'bg-green-600 text-white' : 'bg-gray-300 text-black'}`}
               >
                 {selectedSlots.slot1?.id === previewCard.id ? 'Slot 1 (Selected)' : 'Select for Slot 1'}
               </button>
               <button
-                onClick={() => handleAssignSlot(2, previewCard)}
+                onClick={() => { handleAssignSlot(2, previewCard); setPreviewCard(null) }}
                 className={`flex-1 py-2 rounded font-bold ${selectedSlots.slot2?.id === previewCard.id ? 'bg-green-600 text-white' : 'bg-gray-300 text-black'}`}
               >
                 {selectedSlots.slot2?.id === previewCard.id ? 'Slot 2 (Selected)' : 'Select for Slot 2'}
