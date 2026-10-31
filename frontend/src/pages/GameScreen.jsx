@@ -1,10 +1,9 @@
 import { useEffect, useState, Fragment } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { io } from 'socket.io-client';
+import SocketService from '../services/socket';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-const socket = io(API_BASE, { transports: ['websocket'] });
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 const getBallColor = (letter) => {
   switch(letter) {
@@ -18,6 +17,7 @@ const getBallColor = (letter) => {
 };
 
 const GameScreen = () => {
+  const socket = SocketService.get() || SocketService.connect()
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const roomId = searchParams.get('roomId') || 'room_10';
