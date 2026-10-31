@@ -3,10 +3,16 @@ const db = require('../db')
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN)
 
-// Set the persistent menu button to show the command list
+// Set the persistent menu button to show the command list with custom text
 bot.telegram.setChatMenuButton({
-  menu_button: { type: 'commands' }
-}).then(() => console.log('✅ Menu button set to commands mode')).catch(console.error)
+  menu_button: {
+    type: 'commands'
+  }
+}).then(() => {
+  console.log('✅ Menu button set to COMMANDS mode successfully')
+}).catch((err) => {
+  console.error('❌ Failed to set menu button:', err)
+})
 
 // Register the commands list
 bot.telegram.setMyCommands([
@@ -17,7 +23,11 @@ bot.telegram.setMyCommands([
   { command: 'deposit', description: 'Deposit funds' },
   { command: 'withdraw', description: 'Withdraw funds' },
   { command: 'help', description: 'How to play the game' }
-]).then(() => console.log('✅ Bot commands registered')).catch(console.error)
+]).then(() => {
+  console.log('✅ Bot commands registered successfully')
+}).catch((err) => {
+  console.error('❌ Failed to register commands:', err)
+})
 
 function getMainMenu() {
   return {
