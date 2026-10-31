@@ -50,20 +50,40 @@ router.post('/login', async (req, res) => {
 
 router.get('/stats', adminAuth, async (req, res) => {
   try {
-    const totalUsers = await db('users').count('* as c').first()
-    const totalRooms = await db('rooms').count('* as c').first()
-    const activeGames = await db('rooms').where({ status: 'PLAYING' }).count('* as c').first()
-    const wagered = await db('rooms').sum('stake_amount as s').first()
-    const profit = await db('payments').where({ type: 'deposit', status: 'completed' }).sum('amount as a').first()
+    const userCountResult = await db('users').count('* as count').first()
+    const totalUsers = parseInt(userCountResult.count, 10)
+
+    const activeGamesResult = await db('rooms')
+      .whereIn('status', ['WAITING', 'COUNTDOWN', 'PLAYING'])
+      .count('* as count')
+      .first()
+    const activeGames = parseInt(activeGamesResult.count, 10)
+
+    // Total Wagered: sum of stakes across all room participants (each player's entry)
+    const wageredResult = await db('rooms')
+      .join('room_participants', 'rooms.id', 'room_participants.room_id')
+      .sum('rooms.stake_amount as total')
+      .first()
+    const totalWagered = parseFloat(wageredResult.total || 0).toFixed(2)
+
+    // Platform Profit: Total Wagered - Total Payouts (game_win ledger entries)
+    const payoutsResult = await db('financial_ledger')
+      .where({ type: 'game_win' })
+      .sum('amount as total')
+      .first()
+    const totalPayouts = parseFloat(payoutsResult.total || 0)
+
+    const platformProfit = (parseFloat(totalWagered) - totalPayouts).toFixed(2)
+
     res.json({
-      totalUsers: Number(totalUsers.c),
-      totalRooms: Number(totalRooms.c),
-      totalWagered: Number(wagered.s || 0),
-      totalPlatformProfit: Number(profit.a || 0),
-      activeGames: Number(activeGames.c),
+      totalUsers,
+      activeGames,
+      totalWagered,
+      platformProfit,
     })
   } catch (err) {
-    res.status(500).json({ error: err.message })
+    console.error('Stats error:', err)
+    res.status(500).json({ error: 'Failed to fetch stats' })
   }
 })
 

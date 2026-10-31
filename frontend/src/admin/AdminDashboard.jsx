@@ -21,7 +21,7 @@ export default function AdminDashboard() {
     { label: 'Total Users', value: stats.totalUsers },
     { label: 'Active Games', value: stats.activeGames },
     { label: 'Total Wagered', value: stats.totalWagered },
-    { label: 'Platform Profit', value: stats.totalPlatformProfit },
+    { label: 'Platform Profit', value: stats.platformProfit },
   ]
 
   return (
