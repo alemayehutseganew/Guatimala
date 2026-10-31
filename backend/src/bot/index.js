@@ -29,6 +29,8 @@ async function ensureLanguage(ctx, actionCallback) {
   return true
 }
 
+const API_BASE = process.env.API_URL || 'http://localhost:3001'
+const userStates = {}
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN)
 
 bot.telegram.setChatMenuButton({
@@ -180,19 +182,7 @@ bot.command('balance', async (ctx) => {
   await doBalance(ctx, lang)
 })
 
-bot.command('deposit', async (ctx) => {
-  const hasLang = await ensureLanguage(ctx, 'deposit')
-  if (!hasLang) return
-  const lang = await getUserLanguage(ctx.from.id) || 'en'
-  await doDeposit(ctx, lang)
-})
-
-bot.command('withdraw', async (ctx) => {
-  const hasLang = await ensureLanguage(ctx, 'withdraw')
-  if (!hasLang) return
-  const lang = await getUserLanguage(ctx.from.id) || 'en'
-  await doWithdraw(ctx, lang)
-})
+// (moved to in-chat flow below)
 
 bot.command('help', async (ctx) => {
   const hasLang = await ensureLanguage(ctx, 'help')
@@ -210,21 +200,9 @@ bot.action('menu_balance', async (ctx) => {
   await doBalance(ctx, lang)
 })
 
-bot.action('menu_deposit', async (ctx) => {
-  await ctx.answerCbQuery()
-  const hasLang = await ensureLanguage(ctx, 'deposit')
-  if (!hasLang) return
-  const lang = await getUserLanguage(ctx.from.id) || 'en'
-  await doDeposit(ctx, lang)
-})
+// (moved to in-chat flow below)
 
-bot.action('menu_withdraw', async (ctx) => {
-  await ctx.answerCbQuery()
-  const hasLang = await ensureLanguage(ctx, 'withdraw')
-  if (!hasLang) return
-  const lang = await getUserLanguage(ctx.from.id) || 'en'
-  await doWithdraw(ctx, lang)
-})
+// (moved to in-chat flow below)
 
 bot.action('menu_room', async (ctx) => {
   await ctx.answerCbQuery()
@@ -241,6 +219,116 @@ bot.action('menu_help', async (ctx) => {
   const lang = await getUserLanguage(ctx.from.id) || 'en'
   await doHelp(ctx, lang)
 })
+// In-chat deposit/withdraw flows
+async function startDeposit(ctx) {
+  const lang = await getUserLanguage(ctx.from.id) || 'en'
+  userStates[ctx.from.id] = { flow: 'deposit', step: 'amount', lang }
+  ctx.reply(lang === 'am' ? 'የሚያስገቡትን መጠን (ETB) ያስገቡ:' : 'Enter amount to deposit (ETB):')
+}
+
+async function startWithdraw(ctx) {
+  const lang = await getUserLanguage(ctx.from.id) || 'en'
+  userStates[ctx.from.id] = { flow: 'withdraw', step: 'amount', lang }
+  ctx.reply(lang === 'am' ? 'የሚያወጡትን መጠን (ETB) ያስገቡ:' : 'Enter amount to withdraw (ETB):')
+}
+
+bot.command('deposit', async (ctx) => {
+  const hasLang = await ensureLanguage(ctx, 'deposit')
+  if (!hasLang) return
+  await startDeposit(ctx)
+})
+
+bot.command('withdraw', async (ctx) => {
+  const hasLang = await ensureLanguage(ctx, 'withdraw')
+  if (!hasLang) return
+  await startWithdraw(ctx)
+})
+
+bot.action('menu_deposit', async (ctx) => {
+  await ctx.answerCbQuery()
+  const hasLang = await ensureLanguage(ctx, 'deposit')
+  if (!hasLang) return
+  await startDeposit(ctx)
+})
+
+bot.action('menu_withdraw', async (ctx) => {
+  await ctx.answerCbQuery()
+  const hasLang = await ensureLanguage(ctx, 'withdraw')
+  if (!hasLang) return
+  await startWithdraw(ctx)
+})
+
+bot.on('text', async (ctx) => {
+  const state = userStates[ctx.from.id]
+  if (!state) return
+  const lang = state.lang || 'en'
+  const text = (ctx.message.text || '').trim()
+
+  if (state.flow === 'deposit') {
+    if (state.step === 'amount') {
+      const amt = Number(text)
+      if (!amt || amt <= 0) {
+        return ctx.reply(lang === 'am' ? 'ትክክለኛ መጠን ያስገቡ።' : 'Please enter a valid amount.')
+      }
+      state.amount = amt
+      state.step = 'reference'
+      return ctx.reply(lang === 'am' ? 'የቴሌብር ደረሰኝ ማጣቀሻ (Reference ID) ያስገቡ:' : 'Enter Telebirr receipt reference ID:')
+    }
+    if (state.step === 'reference') {
+      const reference = text
+      delete userStates[ctx.from.id]
+      try {
+        const res = await fetch(`${API_BASE}/api/wallet/deposit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: ctx.from.id, amount: state.amount, reference }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          ctx.reply(lang === 'am' ? `✅ ያስገቡት ${state.amount} ETB ተረጋግጧል። አዲስ ቀሪ: ${data.newBalance}` : `✅ Deposit of ${state.amount} ETB verified. New balance: ${data.newBalance}`)
+        } else {
+          ctx.reply(lang === 'am' ? `❌ ${data.error || 'ማረጋገጥ አልተሳካም'}` : `❌ ${data.error || 'Verification failed'}`)
+        }
+      } catch (e) {
+        ctx.reply(lang === 'am' ? '❌ የኔትወርክ ስህተት' : '❌ Network error')
+      }
+      return
+    }
+  }
+
+  if (state.flow === 'withdraw') {
+    if (state.step === 'amount') {
+      const amt = Number(text)
+      if (!amt || amt < 100) {
+        return ctx.reply(lang === 'am' ? 'ዝቅተኛው መጠን 100 ETB ነው።' : 'Minimum withdrawal is 100 ETB.')
+      }
+      state.amount = amt
+      state.step = 'phone'
+      return ctx.reply(lang === 'am' ? 'የስልክ ቁጥርዎን ያስገቡ:' : 'Enter your phone number:')
+    }
+    if (state.step === 'phone') {
+      const phone = text
+      delete userStates[ctx.from.id]
+      try {
+        const res = await fetch(`${API_BASE}/api/wallet/withdraw`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: ctx.from.id, amount: state.amount, provider: 'telebirr', phoneNumber: phone }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          ctx.reply(lang === 'am' ? `✅ የማውጣት ጥያቄ ተልኳል።` : `✅ Withdrawal request submitted.`)
+        } else {
+          ctx.reply(lang === 'am' ? `❌ ${data.error || 'አልተሳካም'}` : `❌ ${data.error || 'Failed'}`)
+        }
+      } catch (e) {
+        ctx.reply(lang === 'am' ? '❌ የኔትወርክ ስህተት' : '❌ Network error')
+      }
+      return
+    }
+  }
+})
+
 
 function launch() {
   if (!process.env.TELEGRAM_BOT_TOKEN) {
