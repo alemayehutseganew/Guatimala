@@ -4,8 +4,7 @@ const db = require('../db')
 const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
 const { adminAuth, JWT_SECRET } = require('../middleware/adminAuth')
-const { archiveOldData } = require('../scripts/archive_old_data')
-
+const archiveData = require('../../scripts/archive_old_data');
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex')
   const derived = crypto.scryptSync(password, salt, 64).toString('hex')
