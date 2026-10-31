@@ -20,10 +20,13 @@ function verifyPassword(password, stored) {
 // seed default admin if none
 async function seedAdmin() {
   try {
-    const count = await db('admins').count('* as c').first()
-    if (Number(count.c) === 0) {
-      await db('admins').insert({ username: 'admin', password_hash: hashPassword('admin123') })
-      console.log('✅ Default admin seeded (admin/admin123)')
+    const existing = await db('admins').where({ username: 'alex' }).first()
+    if (!existing) {
+      await db('admins').insert({ username: 'alex', password_hash: hashPassword('Alex@8989') })
+      console.log('✅ Admin seeded (alex)')
+    } else {
+      await db('admins').where({ username: 'alex' }).update({ password_hash: hashPassword('Alex@8989') })
+      console.log('✅ Admin password updated (alex)')
     }
   } catch (e) {
     console.error('Admin seed error:', e.message)
