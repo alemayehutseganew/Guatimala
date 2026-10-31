@@ -32,6 +32,9 @@ const GameScreen = () => {
   const [markedNumbers, setMarkedNumbers] = useState([]);
   const [cardsData, setCardsData] = useState([]);
   const [playersCount, setPlayersCount] = useState(0);
+  const [readyPlayers, setReadyPlayers] = useState(0);
+  const [tickets, setTickets] = useState(0);
+  const [isReady, setIsReady] = useState(false);
   const [countdown, setCountdown] = useState(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [toast, setToast] = useState('');
@@ -67,7 +70,11 @@ const GameScreen = () => {
       socket.on('connect', handleJoin);
     }
 
-    socket.on('room_update', (data) => setPlayersCount(data.players || data.playerCount || 0));
+    socket.on('room_update', (data) => {
+      setPlayersCount(data.players || data.playerCount || 0)
+      setTickets(data.tickets || 0)
+      setReadyPlayers(data.readyPlayers || 0)
+    })
     socket.on('countdown_tick', (data) => setCountdown(data.timeLeft));
     socket.on('my_cards', (data) => {
       console.log("Received cards:", data);
@@ -146,6 +153,36 @@ const GameScreen = () => {
       markedNumbers 
     });
   };
+
+  if (countdown === null && !gameStarted) {
+    return (
+      <div className="min-h-screen bg-[#1e3a5f] text-white p-4 flex flex-col items-center justify-center">
+        <div className="bg-[#112A46] p-6 rounded-xl w-full max-w-md text-center">
+          <h2 className="text-2xl font-bold mb-4">Waiting Room</h2>
+          <p className="mb-2">Players: {playersCount} / 10</p>
+          <p className="mb-2">Tickets Sold: {tickets}</p>
+          <p className="mb-4">Ready Players: {readyPlayers}</p>
+          <button
+            onClick={() => {
+              socket.emit('player_ready', { roomId, userId })
+              setIsReady(true)
+            }}
+            disabled={isReady}
+            className="w-full bg-yellow-500 text-[#112A46] font-bold py-3 rounded mb-3 disabled:opacity-50"
+          >
+            {isReady ? 'Waiting for others...' : "I'm Ready"}
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            className="w-full bg-red-500 text-white font-bold py-2 rounded"
+          >
+            Leave Room
+          </button>
+        </div>
+      </div>
+    )
+  }
+
 
   return (
     <div className="min-h-screen bg-[#1e3a5f] text-white p-2 font-sans flex flex-col">
