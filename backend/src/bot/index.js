@@ -1,4 +1,5 @@
 const { Telegraf } = require('telegraf')
+const db = require('../db')
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN)
 
@@ -35,32 +36,60 @@ function getMainMenu() {
   }
 }
 
-bot.start(async (ctx) => {
-  await ctx.reply('Welcome to Ethio Bingo! Tap a button below to get started.', getMainMenu())
+bot.start((ctx) => {
+  ctx.reply('Welcome to GOBINGO! 🎰\nChoose an option from the menu below:', getMainMenu())
 })
 
+bot.command('menu', (ctx) => {
+  ctx.reply('Here is the main menu:', getMainMenu())
+})
+
+// Handle "Check Balance"
 bot.action('menu_balance', async (ctx) => {
   await ctx.answerCbQuery()
-  const userId = ctx.from.id
-  await ctx.reply(`Your balance is available in the Mini App. (Telegram ID: ${userId})`, getMainMenu())
+  try {
+    const telegramId = ctx.from.id
+    const user = await db('users').where({ telegram_id: telegramId }).first()
+
+    if (user) {
+      ctx.reply(`💰 Your current balance is: ETB ${Number(user.demo_wallet_balance).toFixed(2)}`)
+    } else {
+      ctx.reply('User not found. Please open the Mini App first to register.')
+    }
+  } catch (error) {
+    console.error(error)
+    ctx.reply('Failed to fetch balance. Please try again later.')
+  }
 })
 
+// Handle "Deposit"
 bot.action('menu_deposit', async (ctx) => {
   await ctx.answerCbQuery()
-  await ctx.reply('To deposit, open the Mini App and use the Wallet page.', getMainMenu())
+  ctx.reply('To deposit funds, please open the Mini App and go to the Wallet section.', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: 'Open Wallet in App', web_app: { url: 'https://guatimala.vercel.app/wallet' } }]
+      ]
+    }
+  })
 })
 
+// Handle "My Room"
 bot.action('menu_room', async (ctx) => {
   await ctx.answerCbQuery()
-  await ctx.reply('Your room info is available in the Mini App.', getMainMenu())
+  ctx.reply('To join a room, please open the Mini App and select a stake.', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: 'Open Lobby', web_app: { url: 'https://guatimala.vercel.app' } }]
+      ]
+    }
+  })
 })
 
+// Handle "Help"
 bot.action('menu_help', async (ctx) => {
   await ctx.answerCbQuery()
-  await ctx.reply(
-    'Ethio Bingo Help:\n\n1. Choose a stake.\n2. Select up to 2 cards.\n3. Numbers are called automatically.\n4. Tap called numbers on your card to mark them.\n5. Complete a line or 4 corners and press BINGO!',
-    getMainMenu()
-  )
+  ctx.reply(`📖 *How to Play GOBINGO*\n\n1. Open the Mini App from the menu.\n2. Select a stake (e.g., 10 Birr).\n3. Choose a card from the 400 available cards.\n4. Wait for the game to start.\n5. Tap the numbers on your card when they are called.\n6. Win by completing a row, column, diagonal, or four corners.\n\nGood luck!`, { parse_mode: 'Markdown' })
 })
 
 function launch() {
