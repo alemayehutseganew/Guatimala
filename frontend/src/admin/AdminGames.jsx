@@ -28,9 +28,9 @@ export default function AdminGames() {
     <div className="p-6 bg-gray-900 min-h-screen">
       <h1 className="text-3xl font-bold text-white mb-6">Game History</h1>
       
-      <div className="overflow-x-auto bg-gray-800 rounded-lg shadow-lg">
-        <table className="w-full text-left text-gray-300">
-          <thead className="bg-gray-700 text-gray-200 uppercase text-sm">
+      <div className="overflow-x-auto w-full bg-slate-800 rounded-2xl shadow-xl border border-slate-700">
+        <table className="w-full text-left text-sm text-slate-300 min-w-[800px]">
+          <thead className="bg-slate-900/50 text-xs uppercase font-bold text-slate-400">
             <tr>
               <th className="px-6 py-4">Room ID</th>
               <th className="px-6 py-4">Stake</th>
@@ -40,10 +40,10 @@ export default function AdminGames() {
               <th className="px-6 py-4">Date & Time</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-700">
+          <tbody className="divide-y divide-slate-700/50">
             {games.map((game) => (
-              <tr key={game.id} className="hover:bg-gray-700 transition-colors">
-                <td className="px-6 py-4 font-mono text-sm text-gray-400">
+              <tr key={game.id} className="hover:bg-slate-700/30 transition-colors">
+                <td className="px-6 py-4 font-mono text-sm text-slate-400">
                   ...{game.id.slice(-6)}
                 </td>
                 <td className="px-6 py-4 font-bold text-green-400">

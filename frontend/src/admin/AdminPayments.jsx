@@ -63,9 +63,9 @@ export default function AdminPayments() {
         />
       </div>
       
-      <div className="overflow-x-auto bg-gray-800 rounded-lg shadow-lg">
-        <table className="w-full text-left text-gray-300">
-          <thead className="bg-gray-700 text-gray-200 uppercase text-sm">
+      <div className="overflow-x-auto w-full bg-slate-800 rounded-2xl shadow-xl border border-slate-700">
+        <table className="w-full text-left text-sm text-slate-300 min-w-[800px]">
+          <thead className="bg-slate-900/50 text-xs uppercase font-bold text-slate-400">
             <tr>
               <th className="px-6 py-4">User</th>
               <th className="px-6 py-4">Transaction Type</th>
@@ -74,14 +74,14 @@ export default function AdminPayments() {
               <th className="px-6 py-4">Date & Time</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-700">
+          <tbody className="divide-y divide-slate-700/50">
             {filteredTransactions.map((tx) => {
               const styles = getTypeStyles(tx.type);
               return (
-                <tr key={tx.id} className="hover:bg-gray-700 transition-colors">
+                <tr key={tx.id} className="hover:bg-slate-700/30 transition-colors">
                   <td className="px-6 py-4">
                     <div className="font-semibold text-white">{tx.first_name || 'No Name'}</div>
-                    <div className="text-xs text-gray-500">@{tx.username || tx.telegram_id}</div>
+                    <div className="text-xs text-slate-500">@{tx.username || tx.telegram_id}</div>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${styles.badge}`}>
@@ -91,10 +91,10 @@ export default function AdminPayments() {
                   <td className={`px-6 py-4 font-mono font-bold text-lg ${styles.text}`}>
                     {styles.sign}{Math.abs(tx.amount).toFixed(2)}
                   </td>
-                  <td className="px-6 py-4 font-mono text-sm text-gray-400">
+                  <td className="px-6 py-4 font-mono text-sm text-slate-400">
                     {tx.reference_id ? (tx.reference_id.length > 15 ? `...${tx.reference_id.slice(-8)}` : tx.reference_id) : '-'}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-400">
+                  <td className="px-6 py-4 text-sm text-slate-400">
                     {new Date(tx.created_at).toLocaleString()}
                   </td>
                 </tr>
