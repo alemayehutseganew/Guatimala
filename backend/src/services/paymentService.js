@@ -1,4 +1,5 @@
 const db = require('../db')
+const { parseTelebirrSMS } = require('../utils/smsParser')
 
 async function fetchReceiptHtml(reference) {
   const urls = [
@@ -99,4 +100,4 @@ async function processDeposit(userId, amount, reference) {
   return { success: true, newBalance }
 }
 
-module.exports = { verifyTelebirrReceipt, processDeposit }
+module.exports = { verifyTelebirrReceipt, processDeposit, parseTelebirrSMS }
