@@ -179,9 +179,10 @@ router.get('/payments', adminAuth, async (req, res) => {
         'financial_ledger.id',
         'users.first_name',
         'users.username',
+        'users.telegram_id',
         'financial_ledger.amount',
-        'financial_ledger.type',
-        'financial_ledger.reference',
+        db.raw("CASE financial_ledger.type WHEN 'game_win' THEN 'WINNING_PAYOUT' WHEN 'admin_add' THEN 'ADMIN_ADJUSTMENT' WHEN 'admin_subtract' THEN 'ADMIN_ADJUSTMENT' ELSE UPPER(financial_ledger.type) END as type"),
+        'financial_ledger.reference as reference_id',
         'financial_ledger.created_at'
       )
       .orderBy('financial_ledger.created_at', 'desc')
