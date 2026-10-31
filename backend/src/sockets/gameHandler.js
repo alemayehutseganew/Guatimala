@@ -167,17 +167,37 @@ function initGameHandler(io) {
 
         if (result.isValid) {
           const prizeAmount = 17
+          const totalPlayers = rooms[roomId] ? Object.keys(rooms[roomId].players).length : 1
+          const stake = rooms[roomId] ? rooms[roomId].stake : 10
+          const { calculatePayout } = require('../utils/jackpotSplitter')
+          const { payout } = calculatePayout(totalPlayers, stake)
+
           if (rooms[roomId]) {
             rooms[roomId].status = 'ENDED'
             rooms[roomId].winner = userId
             if (rooms[roomId].intervalId) { clearInterval(rooms[roomId].intervalId); rooms[roomId].intervalId = null }
           }
+
+          await db('users').where({ id: user.id }).increment('demo_wallet_balance', payout)
+          await db('users').where({ id: user.id }).increment('wallet_balance', payout)
+
+          const hasLedger = await db.schema.hasTable('financial_ledger')
+          if (hasLedger) {
+            await db('financial_ledger').insert({
+              user_id: user.id,
+              type: 'game_win',
+              amount: payout,
+              reference: `BINGO-${roomId}-${user.id}`,
+              created_at: new Date(),
+            })
+          }
+
           socket.emit('bingo_result', {
             success: true,
-            message: `BINGO! You won ${prizeAmount} ETB with a ${result.pattern}!`,
-            amount: prizeAmount,
+            message: `BINGO! You won ${payout} ETB with a ${result.pattern}!`,
+            amount: payout,
           })
-          socket.to(roomId).emit('game_over', { winner: user.first_name })
+          socket.to(roomId).emit('game_over', { winner: { userId: user.id, socketId: socket.id, name: user.first_name } })
         } else {
           socket.emit('bingo_result', { success: false, message: 'Not a valid Bingo. Keep playing!' })
         }
