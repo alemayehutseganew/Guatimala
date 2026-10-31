@@ -1,19 +1,32 @@
 function parseTelebirrSMS(smsText) {
-  if (!smsText || typeof smsText !== 'string') return null
+  if (!smsText) return null
 
-  const txnMatch = smsText.match(/Your transaction number is ([A-Z0-9]+)/i)
-  const amountMatch = smsText.match(/You have paid ETB ([0-9.]+)/i)
-  const payerMatch = smsText.match(/- ([A-Za-z ]+?) on /i)
-  const phoneMatch = smsText.match(/from ([0-9]+)/i)
+  const idMatch = smsText.match(/Your transaction number is\s+([A-Z0-9]+)/i)
+  const transactionId = idMatch ? idMatch[1] : null
 
-  if (!txnMatch || !amountMatch) return null
+  const amountMatch = smsText.match(/(?:paid|transferred)\s+ETB\s+([0-9.]+)/i)
+  const amount = amountMatch ? parseFloat(amountMatch[1]) : null
+
+  const payerMatch = smsText.match(/Dear\s+([A-Za-z\s]+)/i)
+  const payerName = payerMatch ? payerMatch[1].trim() : null
+
+  const receiverMatch = smsText.match(/to\s+([A-Za-z\s]+)\s+\(([0-9*]+)\)/i)
+  const receiverName = receiverMatch ? receiverMatch[1].trim() : null
+  const receiverNumber = receiverMatch ? receiverMatch[2] : null
+
+  if (!transactionId || !amount || !receiverName) {
+    return null
+  }
 
   return {
-    transactionId: txnMatch[1],
-    amount: parseFloat(amountMatch[1]),
-    payerName: payerMatch ? payerMatch[1].trim() : null,
-    phoneNumber: phoneMatch ? phoneMatch[1] : null,
+    transactionId,
+    amount,
+    payerName,
+    receiverName,
+    receiverNumber,
+    rawText: smsText,
   }
 }
 
 module.exports = { parseTelebirrSMS }
+
