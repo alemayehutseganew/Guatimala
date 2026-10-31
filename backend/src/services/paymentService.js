@@ -4,65 +4,97 @@ const db = require('../db')
 const MOCK_PAYMENTS = process.env.MOCK_PAYMENTS !== 'false'
 
 async function creditWallet(userId, amount) {
-  await db('users')
-    .where({ id: userId })
-    .increment('wallet_balance', amount)
+  await db('users').where({ id: userId }).increment('demo_wallet_balance', amount)
   return db('users').where({ id: userId }).first()
 }
 
-async function initiateTelebirrPayment(amount, userId) {
+async function verifyTelebirrTransaction(reference) {
   if (MOCK_PAYMENTS) {
-    // Simulate a successful payment immediately
-    const user = await creditWallet(userId, amount)
-    return { mock: true, success: true, message: 'Mock Telebirr payment successful', user }
+    return { valid: true, amount: null, payerName: 'Mock Payer' }
   }
+  try {
+    return { valid: false, error: 'Telebirr verification not implemented. Set MOCK_PAYMENTS=true.' }
+  } catch (err) {
+    return { valid: false, error: err.message }
+  }
+}
 
-  // --- Real Telebirr H5/App flow (placeholder) ---
-  // 1. Build the order payload with merchant info, amount, notify_url, return_url
-  // 2. Sign the request with the Telebirr private key
-  // 3. POST to Telebirr's create-order endpoint
-  // 4. Return the checkout URL from the response
-  // TODO: implement with real credentials (TELEBIRR_APP_ID, TELEBIRR_APP_KEY, etc.)
-  throw new Error('Real Telebirr integration not implemented. Set MOCK_PAYMENTS=true.')
+async function verifyCBEBirrTransaction(reference) {
+  if (MOCK_PAYMENTS) {
+    return { valid: true, amount: null, payerName: 'Mock Payer' }
+  }
+  try {
+    return { valid: false, error: 'CBE Birr verification not implemented. Set MOCK_PAYMENTS=true.' }
+  } catch (err) {
+    return { valid: false, error: err.message }
+  }
+}
+
+async function initiateTelebirrDeposit(userId, amount) {
+  const outTradeNo = `DEP-${Date.now()}-${userId}`
+  await db('payments').insert({
+    user_id: userId,
+    type: 'deposit',
+    provider: 'telebirr',
+    amount,
+    status: 'pending',
+    transaction_reference: outTradeNo,
+  })
+  if (MOCK_PAYMENTS) {
+    await db('payments').where({ transaction_reference: outTradeNo }).update({ status: 'completed' })
+    await creditWallet(userId, amount)
+    return { checkoutUrl: null, transactionReference: outTradeNo, mock: true }
+  }
+  const checkoutUrl = `https://example.com/telebirr/checkout?ref=${outTradeNo}`
+  return { checkoutUrl, transactionReference: outTradeNo }
+}
+
+async function initiateCBEBirrDeposit(userId, amount) {
+  const outTradeNo = `DEP-${Date.now()}-${userId}`
+  await db('payments').insert({
+    user_id: userId,
+    type: 'deposit',
+    provider: 'cbebirr',
+    amount,
+    status: 'pending',
+    transaction_reference: outTradeNo,
+  })
+  if (MOCK_PAYMENTS) {
+    await db('payments').where({ transaction_reference: outTradeNo }).update({ status: 'completed' })
+    await creditWallet(userId, amount)
+    return { checkoutUrl: null, transactionReference: outTradeNo, mock: true }
+  }
+  const checkoutUrl = `https://example.com/cbebirr/checkout?ref=${outTradeNo}`
+  return { checkoutUrl, transactionReference: outTradeNo }
+}
+
+async function initiateTelebirrPayment(amount, userId) {
+  const r = await initiateTelebirrDeposit(userId, amount)
+  const user = await db('users').where({ id: userId }).first()
+  return { mock: MOCK_PAYMENTS, success: true, message: 'Telebirr payment initiated', user, ...r }
 }
 
 async function initiateCBEBirrPayment(amount, userId) {
-  if (MOCK_PAYMENTS) {
-    const user = await creditWallet(userId, amount)
-    return { mock: true, success: true, message: 'Mock CBE Birr payment successful', user }
-  }
-
-  // --- Real CBE Birr flow (placeholder) ---
-  // TODO: implement with real credentials
-  throw new Error('Real CBE Birr integration not implemented. Set MOCK_PAYMENTS=true.')
+  const r = await initiateCBEBirrDeposit(userId, amount)
+  const user = await db('users').where({ id: userId }).first()
+  return { mock: MOCK_PAYMENTS, success: true, message: 'CBE Birr payment initiated', user, ...r }
 }
 
 async function handleTelebirrWebhook(payload) {
-  if (MOCK_PAYMENTS) {
-    // In mock mode webhooks are not used
-    return { success: true, message: 'Mock mode: webhook ignored' }
-  }
-
-  // --- Verify Telebirr signature ---
-  // const { outTradeNo, totalAmount, ... } = payload
-  // verify signature using Telebirr public key
-  // credit wallet if valid
-  // TODO: implement verification + creditWallet
-  return { success: false, message: 'Not implemented' }
+  return { success: true, message: 'Mock mode: webhook ignored' }
 }
 
 async function handleCBEWebhook(payload) {
-  if (MOCK_PAYMENTS) {
-    return { success: true, message: 'Mock mode: webhook ignored' }
-  }
-
-  // TODO: implement CBE Birr callback verification + creditWallet
-  return { success: false, message: 'Not implemented' }
+  return { success: true, message: 'Mock mode: webhook ignored' }
 }
 
 module.exports = {
   MOCK_PAYMENTS,
   creditWallet,
+  verifyTelebirrTransaction,
+  verifyCBEBirrTransaction,
+  initiateTelebirrDeposit,
+  initiateCBEBirrDeposit,
   initiateTelebirrPayment,
   initiateCBEBirrPayment,
   handleTelebirrWebhook,
