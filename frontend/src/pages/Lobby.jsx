@@ -57,13 +57,17 @@ export default function Lobby() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stake, userId }),
       })
+
       const data = await res.json()
 
       if (!res.ok) {
-        if (data.error === 'INSUFFICIENT_BALANCE') {
+        console.log('Backend error response:', data)
+        const errorCode = data.error || data.message || ''
+
+        if (errorCode.includes('INSUFFICIENT_BALANCE') || errorCode.includes('Insufficient')) {
           alert('💰 Insufficient Balance\n\nYou need at least ' + stake + ' ETB to join this game.\n\nPlease deposit funds via the Telegram bot first.')
         } else {
-          alert('Error: ' + (data.message || 'Something went wrong'))
+          alert('Error: ' + (data.message || data.error || 'Something went wrong. Please try again.'))
         }
         return
       }
@@ -73,7 +77,7 @@ export default function Lobby() {
       }
     } catch (e) {
       console.error('Join room failed', e)
-      alert('Network error. Please try again.')
+      alert('Network error. Please check your connection and try again.')
     }
   }
 
