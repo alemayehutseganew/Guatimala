@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 export default function Wallet() {
   const navigate = useNavigate()
@@ -43,7 +43,6 @@ export default function Wallet() {
         window.location.href = data.checkoutUrl
       } else if (data.success) {
         setMessage(data.message || 'Deposit successful')
-        // refresh user
         const r = await fetch(`${API_BASE}/api/me`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         })
@@ -73,9 +72,10 @@ export default function Wallet() {
         <label className="block text-sm mb-1">Amount</label>
         <input
           type="number"
+          placeholder="Enter amount"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-full p-2 rounded text-[#112A46]"
+          className="w-full bg-[#1e3a5f] text-white placeholder-white border-2 border-gray-600 rounded-lg p-3 text-xl font-bold focus:outline-none focus:border-yellow-500"
         />
       </div>
 
