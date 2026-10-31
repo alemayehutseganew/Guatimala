@@ -1,48 +1,82 @@
-import { useEffect, useState } from 'react'
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+import { useEffect, useState } from 'react';
 
 export default function AdminGames() {
-  const [games, setGames] = useState([])
-  const token = localStorage.getItem('adminToken')
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/admin/games`, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
-      .then((d) => setGames(d.games || []))
-      .catch(() => {})
-  }, [token])
+    const fetchGames = async () => {
+      try {
+        const token = localStorage.getItem('adminToken');
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/games`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.games) setGames(data.games);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchGames();
+  }, []);
 
-  const statusColor = (s) => (s === 'ENDED' || s === 'FINISHED' ? 'text-green-400' : 'text-yellow-400')
+  if (loading) return <div className="text-white p-6">Loading games...</div>;
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-4">Game History</h1>
-      <table className="w-full text-sm">
-        <thead className="bg-gray-800">
-          <tr>
-            <th className="p-2 text-left">Room ID</th>
-            <th className="p-2 text-left">Stake</th>
-            <th className="p-2 text-left">Players</th>
-            <th className="p-2 text-left">Status</th>
-            <th className="p-2 text-left">Winner</th>
-            <th className="p-2 text-left">Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {games.map((g) => (
-            <tr key={g.id} className="border-b border-gray-700 hover:bg-gray-800">
-              <td className="p-2">{String(g.id).slice(-6)}</td>
-              <td className="p-2">{g.stake_amount} ETB</td>
-              <td className="p-2">{g.total_players}</td>
-              <td className={`p-2 ${statusColor(g.status)}`}>{g.status}</td>
-              <td className="p-2">{g.winner_name}</td>
-              <td className="p-2">{g.created_at}</td>
+    <div className="p-6 bg-gray-900 min-h-screen">
+      <h1 className="text-3xl font-bold text-white mb-6">Game History</h1>
+      
+      <div className="overflow-x-auto bg-gray-800 rounded-lg shadow-lg">
+        <table className="w-full text-left text-gray-300">
+          <thead className="bg-gray-700 text-gray-200 uppercase text-sm">
+            <tr>
+              <th className="px-6 py-4">Room ID</th>
+              <th className="px-6 py-4">Stake</th>
+              <th className="px-6 py-4">Players</th>
+              <th className="px-6 py-4">Status</th>
+              <th className="px-6 py-4">Winner</th>
+              <th className="px-6 py-4">Date & Time</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-700">
+            {games.map((game) => (
+              <tr key={game.id} className="hover:bg-gray-700 transition-colors">
+                <td className="px-6 py-4 font-mono text-sm text-gray-400">
+                  ...{game.id.slice(-6)}
+                </td>
+                <td className="px-6 py-4 font-bold text-green-400">
+                  {game.stake_amount} ETB
+                </td>
+                <td className="px-6 py-4">{game.total_players}</td>
+                <td className="px-6 py-4">
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    game.status === 'FINISHED' ? 'bg-green-900 text-green-300' :
+                    game.status === 'PLAYING' ? 'bg-yellow-900 text-yellow-300' :
+                    'bg-gray-600 text-gray-300'
+                  }`}>
+                    {game.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 font-semibold text-yellow-400">
+                  {game.winner_name}
+                </td>
+                <td className="px-6 py-4 text-sm">
+                  {new Date(game.created_at).toLocaleString()}
+                </td>
+              </tr>
+            ))}
+            {games.length === 0 && (
+              <tr>
+                <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                  No games played yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
-  )
+  );
 }
-

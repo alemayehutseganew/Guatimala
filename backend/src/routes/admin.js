@@ -149,7 +149,7 @@ router.get('/games', adminAuth, async (req, res) => {
       .orderBy('rooms.created_at', 'desc')
       .limit(100)
 
-    const gameIds = games.map((g) => g.id)
+    const gameIds = games.map(g => g.id)
     const winners = await db('room_participants')
       .join('users', 'room_participants.user_id', 'users.id')
       .whereIn('room_participants.room_id', gameIds)
@@ -157,17 +157,16 @@ router.get('/games', adminAuth, async (req, res) => {
       .select('room_participants.room_id', 'users.first_name', 'users.username')
 
     const winnerMap = {}
-    winners.forEach((w) => {
-      winnerMap[w.room_id] = w.first_name || w.username || 'Unknown'
-    })
+    winners.forEach(w => winnerMap[w.room_id] = w.first_name || w.username || 'Unknown')
 
-    const result = games.map((g) => ({
+    const result = games.map(g => ({
       ...g,
-      winner_name: winnerMap[g.id] || 'No Winner / In Progress',
+      winner_name: winnerMap[g.id] || 'No Winner / In Progress'
     }))
 
     res.json({ games: result })
   } catch (err) {
+    console.error('Games fetch error:', err)
     res.status(500).json({ error: err.message })
   }
 })
