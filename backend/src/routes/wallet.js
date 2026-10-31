@@ -40,10 +40,10 @@ router.post('/withdraw', async (req, res) => {
 
     const user = await db('users').where({ id: userId }).orWhere({ telegram_id: userId }).first()
     if (!user) return res.status(404).json({ error: 'User not found' })
-    if (Number(user.demo_wallet_balance) < Number(amount)) return res.status(400).json({ error: 'Insufficient balance' })
+    if (Number(user.wallet_balance) < Number(amount)) return res.status(400).json({ error: 'Insufficient balance' })
 
     const reference = `WD-${Date.now()}-${user.id}`
-    await db('users').where({ id: user.id }).decrement('demo_wallet_balance', amount)
+    await db('users').where({ id: user.id }).decrement('wallet_balance', amount)
     await db('payments').insert({
       user_id: user.id,
       type: 'withdrawal',

@@ -71,7 +71,7 @@ bot.command('play', (ctx) => ctx.reply('Tap the button below to launch the game:
 }))
 bot.command('balance', async (ctx) => {
   const user = await db('users').where({ telegram_id: ctx.from.id }).first()
-  if (user) ctx.reply(`💰 Your current balance is: ETB ${Number(user.demo_wallet_balance || 0).toFixed(2)}`)
+  if (user) ctx.reply(`💰 Your current balance is: ETB ${Number(user.wallet_balance || 0).toFixed(2)}`)
   else ctx.reply('User not found. Please open the Mini App first to register.')
 })
 bot.command('help', (ctx) => ctx.reply('📖 How to Play GOBINGO\n\n1. Open the Mini App.\n2. Select a stake.\n3. Choose a card.\n4. Wait for game start.\n5. Tap numbers when called.\n6. Complete a line and press BINGO!\n\nGood luck!', { parse_mode: 'Markdown' }))
@@ -219,7 +219,7 @@ bot.on('text', async (ctx) => {
 bot.action('menu_balance', async (ctx) => {
   await ctx.answerCbQuery()
   const user = await db('users').where({ telegram_id: ctx.from.id }).first()
-  if (user) ctx.reply(`💰 Your current balance is: ETB ${Number(user.demo_wallet_balance || 0).toFixed(2)}`)
+  if (user) ctx.reply(`💰 Your current balance is: ETB ${Number(user.wallet_balance || 0).toFixed(2)}`)
   else ctx.reply('User not found. Please open the Mini App first to register.')
 })
 bot.action('menu_room', async (ctx) => {

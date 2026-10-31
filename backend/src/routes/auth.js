@@ -62,7 +62,6 @@ router.post('/login', async (req, res) => {
           username: tgUser.username || null,
           first_name: tgUser.first_name || null,
           wallet_balance: 0,
-          demo_wallet_balance: 100,
         })
         .returning('*')
       user = created

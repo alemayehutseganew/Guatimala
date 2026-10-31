@@ -5,7 +5,6 @@ exports.up = async function (knex) {
     table.string('username').nullable();
     table.string('first_name').nullable();
     table.decimal('wallet_balance', 14, 2).defaultTo(0);
-    table.decimal('demo_wallet_balance', 14, 2).defaultTo(100);
     table.timestamps(true, true);
   });
 

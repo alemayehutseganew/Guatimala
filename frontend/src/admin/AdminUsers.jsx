@@ -38,7 +38,6 @@ export default function AdminUsers() {
             <th className="p-2 text-left">Telegram ID</th>
             <th className="p-2 text-left">Name</th>
             <th className="p-2 text-left">Balance</th>
-            <th className="p-2 text-left">Demo</th>
             <th className="p-2 text-left">Actions</th>
           </tr>
         </thead>
@@ -49,7 +48,6 @@ export default function AdminUsers() {
               <td className="p-2">{u.telegram_id}</td>
               <td className="p-2">{u.first_name}</td>
               <td className="p-2">{u.wallet_balance}</td>
-              <td className="p-2">{u.demo_wallet_balance}</td>
               <td className="p-2">
                 <button
                   onClick={() => setModal(u)}

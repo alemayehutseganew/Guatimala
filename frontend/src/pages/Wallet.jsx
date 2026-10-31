@@ -94,7 +94,6 @@ export default function Wallet() {
       <div className="bg-white/10 rounded-lg p-4 mb-4">
         <p className="text-sm text-gray-300">Balance</p>
         <p className="text-2xl font-bold">ETB {user?.wallet_balance ?? '0.00'}</p>
-        <p className="text-sm text-gray-300 mt-2">Demo Balance: {user?.demo_wallet_balance ?? '100.00'}</p>
       </div>
 
       {/* Manual Deposit */}

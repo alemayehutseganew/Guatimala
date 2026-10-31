@@ -28,7 +28,7 @@ export default function Leaderboard() {
         <ol className="space-y-2">
           {leaders.map((l, i) => (
             <li key={i} className="bg-white/10 rounded p-3">
-              {i + 1}. {l.first_name || 'Player'} - {l.demo_wallet_balance} ETB
+              {i + 1}. {l.first_name || 'Player'} - {l.wallet_balance} ETB
             </li>
           ))}
         </ol>

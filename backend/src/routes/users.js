@@ -28,8 +28,8 @@ router.get('/history', async (req, res) => {
 router.get('/leaderboard', async (req, res) => {
   try {
     const leaders = await db('users')
-      .select('first_name', 'demo_wallet_balance')
-      .orderBy('demo_wallet_balance', 'desc')
+      .select('first_name', 'wallet_balance')
+      .orderBy('wallet_balance', 'desc')
       .limit(10)
     res.json({ leaders })
   } catch (err) {

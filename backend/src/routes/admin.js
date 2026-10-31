@@ -94,7 +94,7 @@ router.get('/users', adminAuth, async (req, res) => {
     const limit = parseInt(req.query.limit) || 20
     const offset = (page - 1) * limit
     const users = await db('users')
-      .select('id', 'telegram_id', 'first_name', 'wallet_balance', 'demo_wallet_balance', 'created_at')
+      .select('id', 'telegram_id', 'first_name', 'wallet_balance', 'created_at')
       .orderBy('id', 'desc')
       .limit(limit)
       .offset(offset)
@@ -112,9 +112,9 @@ router.post('/users/:id/adjust-balance', adminAuth, async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' })
     const amt = Number(amount)
     if (type === 'add') {
-      await db('users').where({ id: user.id }).increment('demo_wallet_balance', amt)
+      await db('users').where({ id: user.id }).increment('wallet_balance', amt)
     } else if (type === 'subtract') {
-      await db('users').where({ id: user.id }).decrement('demo_wallet_balance', amt)
+      await db('users').where({ id: user.id }).decrement('wallet_balance', amt)
     } else {
       return res.status(400).json({ error: 'Invalid type' })
     }
