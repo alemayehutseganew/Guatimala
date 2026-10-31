@@ -3,17 +3,28 @@ const db = require('../db')
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN)
 
-// Set the global menu button for all users on bot launch
+// Set the menu button to show the command list
 bot.telegram.setChatMenuButton({
   menu_button: {
-    type: 'web_app',
-    text: '☰ Menu',
-    web_app: { url: 'https://guatimala.vercel.app' }
+    type: 'commands'
   }
 }).then(() => {
-  console.log('✅ Global menu button set successfully')
+  console.log('✅ Menu button set to commands mode')
 }).catch((err) => {
-  console.error('❌ Failed to set global menu button:', err)
+  console.error('❌ Failed to set menu button:', err)
+})
+
+// Set the command list
+bot.telegram.setMyCommands([
+  { command: 'start', description: 'Restart the bot' },
+  { command: 'menu', description: 'Open the main menu' },
+  { command: 'balance', description: 'Check your wallet balance' },
+  { command: 'help', description: 'How to play the game' },
+  { command: 'play', description: 'Launch the Bingo game' }
+]).then(() => {
+  console.log('✅ Bot commands set successfully')
+}).catch((err) => {
+  console.error('❌ Failed to set bot commands:', err)
 })
 
 function getMainMenu() {
@@ -45,6 +56,36 @@ bot.start((ctx) => {
 
 bot.command('menu', (ctx) => {
   ctx.reply('Here is the main menu:', getMainMenu())
+})
+
+bot.command('balance', async (ctx) => {
+  try {
+    const telegramId = ctx.from.id
+    const user = await db('users').where({ telegram_id: telegramId }).first()
+
+    if (user) {
+      ctx.reply(`💰 Your current balance is: ETB ${Number(user.demo_wallet_balance).toFixed(2)}`)
+    } else {
+      ctx.reply('User not found. Please open the Mini App first to register.')
+    }
+  } catch (error) {
+    console.error(error)
+    ctx.reply('Failed to fetch balance. Please try again later.')
+  }
+})
+
+bot.command('help', (ctx) => {
+  ctx.reply(`📖 *How to Play GOBINGO*\n\n1. Open the Mini App from the menu.\n2. Select a stake (e.g., 10 Birr).\n3. Choose a card from the 400 available cards.\n4. Wait for the game to start.\n5. Tap the numbers on your card when they are called.\n6. Win by completing a row, column, diagonal, or four corners.\n\nGood luck!`, { parse_mode: 'Markdown' })
+})
+
+bot.command('play', (ctx) => {
+  ctx.reply('Tap the button below to play:', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🎰 Play Bingo', web_app: { url: 'https://guatimala.vercel.app' } }]
+      ]
+    }
+  })
 })
 
 // Handle "Check Balance"
