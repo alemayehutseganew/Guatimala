@@ -20,6 +20,19 @@ function initGameHandler(io) {
           user = { id: userId || socket.id, first_name: 'Player' }
         }
 
+        // SECURITY CHECK: Verify the user has PAID to join this room
+        if (userId) {
+          const participant = await db('room_participants')
+            .where({ room_id: roomId, user_id: user.id })
+            .first()
+          if (!participant) {
+            console.log(`[SECURITY] User ${user.id} tried to join room ${roomId} without paying`)
+            return socket.emit('error', {
+              message: 'You have not paid to join this room. Please go back to the lobby.'
+            })
+          }
+        }
+
         if (!rooms[roomId]) {
           rooms[roomId] = {
             id: roomId,

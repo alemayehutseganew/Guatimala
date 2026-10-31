@@ -51,17 +51,29 @@ export default function Lobby() {
 
   const handleJoin = async (stake) => {
     try {
+      const userId = localStorage.getItem('dbUserId')
       const res = await fetch(`${API_BASE}/api/rooms/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stake }),
+        body: JSON.stringify({ stake, userId }),
       })
       const data = await res.json()
+
+      if (!res.ok) {
+        if (data.error === 'INSUFFICIENT_BALANCE') {
+          alert('💰 Insufficient Balance\n\nYou need at least ' + stake + ' ETB to join this game.\n\nPlease deposit funds via the Telegram bot first.')
+        } else {
+          alert('Error: ' + (data.message || 'Something went wrong'))
+        }
+        return
+      }
+
       if (data.roomId) {
         navigate(`/select-cards?roomId=${data.roomId}&stake=${stake}`)
       }
     } catch (e) {
       console.error('Join room failed', e)
+      alert('Network error. Please try again.')
     }
   }
 
