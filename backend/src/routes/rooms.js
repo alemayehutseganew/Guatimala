@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
 })
 router.post('/join', async (req, res) => {
   try {
-    const { stake } = req.body
+    const { stake, userId } = req.body
     console.log(`[join] Request received for stake: ${stake}`)
 
     let room = await db('game_rooms').where({ stake_amount: stake, status: 'WAITING' }).first()
@@ -27,6 +27,47 @@ router.post('/join', async (req, res) => {
       }).returning('*')
       room = newRoom
       console.log(`[join] Created new room: ${room.id}`)
+    }
+
+    const entryFee = Number(stake) || 0
+
+    if (userId) {
+      let user = await db('users').where({ id: userId }).first()
+      if (!user) user = await db('users').where({ telegram_id: userId }).first()
+
+      if (!user) return res.status(404).json({ error: 'User not found' })
+
+      const result = await db.transaction(async (trx) => {
+        const lockedUser = await trx('users').where({ id: user.id }).forUpdate().first()
+        const currentBalance = Number(lockedUser.wallet_balance || lockedUser.demo_wallet_balance || 0)
+
+        if (currentBalance < entryFee) {
+          throw new Error('Insufficient balance')
+        }
+
+        await trx('users').where({ id: user.id }).decrement('wallet_balance', entryFee)
+        await trx('users').where({ id: user.id }).decrement('demo_wallet_balance', entryFee)
+
+        const hasLedger = await trx.schema.hasTable('financial_ledger')
+        if (hasLedger) {
+          await trx('financial_ledger').insert({
+            user_id: user.id,
+            amount: -entryFee,
+            type: 'ENTRY_FEE',
+            reference: `ROOM_${room.id}`,
+            created_at: new Date(),
+          })
+        }
+
+        await trx('room_participants').insert({
+          room_id: room.id,
+          user_id: user.id,
+        })
+
+        return { room, selectedCards: [] }
+      })
+
+      return res.json({ roomId: room.id, stake: room.stake_amount, ...result })
     }
 
     res.json({ roomId: room.id, stake: room.stake_amount })
