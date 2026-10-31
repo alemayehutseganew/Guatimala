@@ -1,32 +1,22 @@
-import { useState } from 'react'
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useState } from 'react';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 export default function AdminLayout() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const location = useLocation()
-  const navigate = useNavigate()
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem('adminToken')
-    navigate('/admin/login')
-  }
+    localStorage.removeItem('adminToken');
+    navigate('/admin/login');
+  };
 
   const navItems = [
-    { name: 'Dashboard', path: '/admin/dashboard' },
-    { name: 'Users', path: '/admin/users' },
-    { name: 'Games', path: '/admin/games' },
-    { name: 'Payments', path: '/admin/payments' },
-  ]
-
-  const iconFor = (name) => {
-    switch (name) {
-      case 'Dashboard': return '📊'
-      case 'Users': return '👥'
-      case 'Games': return '🎮'
-      case 'Payments': return '💳'
-      default: return '•'
-    }
-  }
+    { name: 'Dashboard', path: '/admin/dashboard', icon: '📊' },
+    { name: 'Users', path: '/admin/users', icon: '👥' },
+    { name: 'Games', path: '/admin/games', icon: '🎮' },
+    { name: 'Payments', path: '/admin/payments', icon: '💳' },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-900 flex">
@@ -39,12 +29,10 @@ export default function AdminLayout() {
 
       <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-800 shadow-2xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6">
-          <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 mb-8 hidden lg:block">
-            GOBINGO ADMIN
-          </h2>
+          <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 mb-8 hidden lg:block">GOBINGO ADMIN</h2>
           <nav className="space-y-2 mt-16 lg:mt-0">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.path
+              const isActive = location.pathname === item.path;
               return (
                 <Link
                   key={item.name}
@@ -52,15 +40,12 @@ export default function AdminLayout() {
                   onClick={() => setIsSidebarOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${isActive ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-700 hover:text-white'}`}
                 >
-                  <span>{iconFor(item.name)}</span>
+                  <span>{item.icon}</span>
                   <span className="font-medium">{item.name}</span>
                 </Link>
-              )
+              );
             })}
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-red-400 hover:bg-red-500/10 transition-all mt-8"
-            >
+            <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-red-400 hover:bg-red-500/10 transition-all mt-8">
               <span>🚪</span>
               <span className="font-medium">Logout</span>
             </button>
@@ -74,5 +59,5 @@ export default function AdminLayout() {
         </main>
       </div>
     </div>
-  )
+  );
 }
