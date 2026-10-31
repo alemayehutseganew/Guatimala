@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const db = require('../db')
+const ps = require('../services/paymentService')
 
 // GET /api/wallet/balance?userId=...
 router.get('/balance', async (req, res) => {
@@ -9,6 +10,22 @@ router.get('/balance', async (req, res) => {
     const user = await db('users').where({ id: userId }).orWhere({ telegram_id: userId }).first()
     if (!user) return res.status(404).json({ error: 'User not found' })
     res.json({ balance: user.demo_wallet_balance || 0 })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// POST /api/wallet/deposit (manual Telebirr receipt verification)
+router.post('/deposit', async (req, res) => {
+  try {
+    const { userId, amount, reference } = req.body
+    if (!userId || !amount || !reference) return res.status(400).json({ error: 'Missing fields' })
+    const user = await db('users').where({ id: userId }).orWhere({ telegram_id: userId }).first()
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const result = await ps.processDeposit(user.id, amount, reference)
+    if (result.error) return res.status(400).json({ error: result.error })
+    res.json({ success: true, newBalance: result.newBalance })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

@@ -8,6 +8,9 @@ export default function Wallet() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] = useState('')
+  const [depositAmount, setDepositAmount] = useState('')
+  const [reference, setReference] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState(100)
   const [phoneNumber, setPhoneNumber] = useState('')
 
@@ -27,9 +30,37 @@ export default function Wallet() {
     loadUser()
   }, [token])
 
+  const deposit = async () => {
+    setLoading(true)
+    setMessage('')
+    setMessageType('')
+    try {
+      const res = await fetch(`${API_BASE}/api/wallet/deposit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, amount: Number(depositAmount), reference }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setMessage('Deposit verified successfully!')
+        setMessageType('success')
+        loadUser()
+      } else {
+        setMessage(data.error || 'Verification failed')
+        setMessageType('error')
+      }
+    } catch (e) {
+      setMessage('Network error')
+      setMessageType('error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const withdraw = async () => {
     setLoading(true)
     setMessage('')
+    setMessageType('')
     try {
       const res = await fetch(`${API_BASE}/api/wallet/withdraw`, {
         method: 'POST',
@@ -39,16 +70,21 @@ export default function Wallet() {
       const data = await res.json()
       if (data.success) {
         setMessage(data.message || 'Withdrawal submitted')
+        setMessageType('success')
         loadUser()
       } else {
         setMessage(data.error || 'Withdrawal failed')
+        setMessageType('error')
       }
     } catch (e) {
       setMessage('Network error')
+      setMessageType('error')
     } finally {
       setLoading(false)
     }
   }
+
+  const inputClass = "w-full bg-[#1e3a5f] text-white placeholder-gray-400 border-2 border-gray-600 rounded-lg p-3 focus:outline-none focus:border-yellow-500"
 
   return (
     <div className="min-h-screen bg-[#112A46] text-white p-4">
@@ -61,6 +97,43 @@ export default function Wallet() {
         <p className="text-sm text-gray-300 mt-2">Demo Balance: {user?.demo_wallet_balance ?? '100.00'}</p>
       </div>
 
+      {/* Manual Deposit */}
+      <div className="bg-white/10 rounded-lg p-4 mb-4">
+        <h2 className="text-lg font-bold mb-3">Manual Deposit (Telebirr)</h2>
+        <div className="bg-yellow-400/20 border border-yellow-400 rounded-lg p-3 mb-4 text-center">
+          <p className="text-sm text-gray-300">Send money to this Telebirr number:</p>
+          <p className="text-2xl font-bold text-yellow-400">0912345678</p>
+        </div>
+        <div className="mb-3">
+          <label className="block text-sm mb-1">Amount to Deposit (ETB)</label>
+          <input
+            type="number"
+            placeholder="e.g. 50"
+            value={depositAmount}
+            onChange={(e) => setDepositAmount(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <div className="mb-3">
+          <label className="block text-sm mb-1">Telebirr Receipt Reference ID</label>
+          <input
+            type="text"
+            placeholder="e.g. CJU5RZ5NM3"
+            value={reference}
+            onChange={(e) => setReference(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <button
+          onClick={deposit}
+          disabled={loading}
+          className="w-full bg-yellow-400 text-[#112A46] font-bold py-2 rounded disabled:opacity-50"
+        >
+          Verify & Deposit
+        </button>
+      </div>
+
+      {/* Withdraw */}
       <div className="bg-white/10 rounded-lg p-4 mb-4">
         <h2 className="text-lg font-bold mb-2">Withdraw</h2>
         <p className="text-sm text-gray-300 mb-2">Minimum withdrawal: 100 ETB</p>
@@ -87,7 +160,11 @@ export default function Wallet() {
         </button>
       </div>
 
-      {message && <p className="mt-4 text-center">{message}</p>}
+      {message && (
+        <p className={`mt-4 text-center font-bold ${messageType === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+          {message}
+        </p>
+      )}
     </div>
   )
 }
