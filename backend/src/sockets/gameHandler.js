@@ -144,6 +144,9 @@ function initGameHandler(io) {
     })
 
     socket.on('claim_bingo', async ({ roomId, userId, cardId, markedNumbers }) => {
+    console.log('CLAIM RECEIVED:', { roomId, userId, cardId, markedNumbers })
+    if (!cardId) return socket.emit('bingo_result', { success: false, message: 'Card ID missing' })
+
       try {
         let user = null
         if (userId) {
@@ -154,15 +157,18 @@ function initGameHandler(io) {
           return socket.emit('bingo_result', { success: false, message: 'User not found' })
         }
 
-        const selection = await db('room_card_selections')
-          .where({ room_id: roomId, user_id: user.id, card_id: cardId })
-          .first()
+
+        const selections = await db('room_card_selections').where({ room_id: roomId, user_id: user.id })
+    const selection = selections.find((s) => (s.card_id || s.card_number) == cardId) || selections[0]
+
 
         if (!selection) {
           return socket.emit('bingo_result', { success: false, message: 'Card not found' })
         }
 
-        const cardMatrix = typeof selection.card === 'string' ? JSON.parse(selection.card) : selection.card
+        const cardMatrix = typeof selection.card === 'string'
+      ? JSON.parse(selection.card)
+      : (selection.card || (typeof selection.matrix === 'string' ? JSON.parse(selection.matrix) : selection.matrix))
         const result = validateBingo(cardMatrix, markedNumbers || [])
 
         if (result.isValid) {

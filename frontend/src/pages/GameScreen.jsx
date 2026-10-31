@@ -130,7 +130,19 @@ const GameScreen = () => {
 
   const handleBingoClick = () => {
     if (!gameStarted) return;
-    socket.emit('claim_bingo', { roomId, userId, card: cardsData[0]?.matrix, markedNumbers });
+    
+    const cardId = cardsData[0]?.id || cardsData[0]?.cardId;
+    if (!cardId) {
+      console.error("No cardId found to claim!");
+      return;
+    }
+
+    socket.emit('claim_bingo', { 
+      roomId, 
+      userId: localStorage.getItem('dbUserId'), 
+      cardId, 
+      markedNumbers 
+    });
   };
 
   return (
@@ -268,7 +280,7 @@ const GameScreen = () => {
           )}
 
           <button 
-            onClick={() => socket.emit('claim_bingo', { roomId, userId, cardId: cardsData[0]?.id, markedNumbers })}
+            onClick={handleBingoClick}
             className="w-full max-w-sm bg-yellow-500 text-[#112A46] font-extrabold text-2xl py-4 rounded-xl shadow-lg"
           >
             BINGO
