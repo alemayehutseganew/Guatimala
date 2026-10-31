@@ -4,14 +4,6 @@ const { Server } = require('socket.io')
 
 const rooms = {}
 
-function getLetterForNumber(num) {
-  if (num <= 15) return 'B'
-  if (num <= 30) return 'I'
-  if (num <= 45) return 'N'
-  if (num <= 60) return 'G'
-  return 'O'
-}
-
 function initGameHandler(io) {
   io.on('connection', (socket) => {
     socket.on('join_room', async ({ roomId, userId, stake }) => {
@@ -21,7 +13,9 @@ function initGameHandler(io) {
           user = await db('users').where({ id: userId }).first()
           if (!user) user = await db('users').where({ telegram_id: userId }).first()
         }
-        if (!user) user = { id: userId || socket.id, first_name: 'Player' }
+        if (!user) {
+          user = { id: userId || socket.id, first_name: 'Player' }
+        }
 
         if (!rooms[roomId]) {
           rooms[roomId] = {
@@ -30,21 +24,22 @@ function initGameHandler(io) {
             status: 'WAITING',
             players: {},
             calledNumbers: new Set(),
-            intervalId: null,
+            intervalId: null
           }
         }
 
-        const playerId = user.id
-        rooms[roomId].players[playerId] = { socketId: socket.id }
+        rooms[roomId].players[socket.id] = { socketId: socket.id, userId: user.id }
         socket.join(roomId)
 
         const playerCount = Object.keys(rooms[roomId].players).length
-        console.log(`[Game] Player ${playerId} joined ${roomId}. Total: ${playerCount}`)
+        console.log(`[Game] Player ${user.id} joined ${roomId}. Total: ${playerCount}`)
 
         io.to(roomId).emit('room_update', { players: playerCount, stake: rooms[roomId].stake })
 
         if (playerCount >= 2 && rooms[roomId].status === 'WAITING') {
           rooms[roomId].status = 'COUNTDOWN'
+          console.log(`[Game] Starting countdown for ${roomId}`)
+
           let timeLeft = 5
           io.to(roomId).emit('countdown_tick', { timeLeft })
 
@@ -54,9 +49,10 @@ function initGameHandler(io) {
 
             if (timeLeft <= 0) {
               clearInterval(countdownInterval)
+
               rooms[roomId].status = 'PLAYING'
               io.to(roomId).emit('game_started')
-              console.log(`[Game] Game started for room ${roomId}`)
+              console.log(`[Game] Game started for ${roomId}`)
 
               if (rooms[roomId].intervalId) clearInterval(rooms[roomId].intervalId)
 
@@ -66,18 +62,23 @@ function initGameHandler(io) {
                   rooms[roomId].intervalId = null
                   return
                 }
+
                 let number
                 do {
                   number = Math.floor(Math.random() * 75) + 1
                 } while (rooms[roomId].calledNumbers.has(number))
+
                 rooms[roomId].calledNumbers.add(number)
+
                 let letter = 'B'
                 if (number > 15) letter = 'I'
                 if (number > 30) letter = 'N'
                 if (number > 45) letter = 'G'
                 if (number > 60) letter = 'O'
+
                 console.log(`[Game] Calling number: ${letter} ${number}`)
                 io.to(roomId).emit('new_number_called', { number, letter })
+
                 if (rooms[roomId].calledNumbers.size === 75) {
                   clearInterval(rooms[roomId].intervalId)
                   rooms[roomId].intervalId = null
@@ -112,6 +113,7 @@ function initGameHandler(io) {
           room.status = 'PLAYING'
           io.to(roomId).emit('game_started')
 
+          if (room.intervalId) clearInterval(room.intervalId)
           room.intervalId = setInterval(() => {
             if (room.status !== 'PLAYING') {
               clearInterval(room.intervalId)
