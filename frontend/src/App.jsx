@@ -7,6 +7,7 @@ import Wallet from './pages/Wallet'
 import Settings from './pages/Settings'
 import GameHistory from './pages/GameHistory'
 import Leaderboard from './pages/Leaderboard'
+import { LanguageProvider } from './LanguageContext'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
@@ -36,18 +37,20 @@ export default function App() {
   }, [])
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Lobby />} />
-        <Route path="/card-selection" element={<CardSelection />} />
-        <Route path="/select-cards" element={<CardSelection />} />
-        <Route path="/game" element={<GameScreen />} />
-        <Route path="/wallet" element={<Wallet />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/history" element={<GameHistory />} />
-        <Route path="/leaderboard" element={<Leaderboard />} />
-      </Routes>
-    </BrowserRouter>
+    <LanguageProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Lobby />} />
+          <Route path="/card-selection" element={<CardSelection />} />
+          <Route path="/select-cards" element={<CardSelection />} />
+          <Route path="/game" element={<GameScreen />} />
+          <Route path="/wallet" element={<Wallet />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/history" element={<GameHistory />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+        </Routes>
+      </BrowserRouter>
+    </LanguageProvider>
   )
 }
 

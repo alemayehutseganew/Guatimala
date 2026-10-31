@@ -23,20 +23,20 @@ bot.telegram.setMyCommands([
   { command: 'help', description: 'How to play the game' }
 ]).then(() => console.log('✅ Commands registered')).catch(console.error)
 
-function getMainMenu() {
+function getMainMenu(lang = 'en') {
+  const texts = {
+    en: { play: '🎮 Play Game', balance: '💰 Check Balance', deposit: '💳 Deposit', withdraw: '💸 Withdraw', room: '🏠 My Room', help: '❓ Help' },
+    am: { play: '🎮 ጨዋታ ይጫወቱ', balance: '💰 ቀሪ ሂሳብ ይመልከቱ', deposit: '💳 ገንዘብ ያስገቡ', withdraw: '💸 ገንዘብ ያውጡ', room: '🏠 ክፍሌ', help: '❓ እርዳታ' }
+  }
+  const t = texts[lang] || texts.en
+
   return {
     reply_markup: {
       inline_keyboard: [
-        [{ text: '🎮 Play Game', web_app: { url: 'https://guatimala.vercel.app' } }],
-        [
-          { text: '💰 Check Balance', callback_data: 'menu_balance' },
-          { text: '💳 Deposit', callback_data: 'menu_deposit' }
-        ],
-        [
-          { text: '💸 Withdraw', callback_data: 'menu_withdraw' },
-          { text: '🏠 My Room', callback_data: 'menu_room' }
-        ],
-        [{ text: '❓ Help', callback_data: 'menu_help' }]
+        [{ text: t.play, web_app: { url: 'https://guatimala.vercel.app' } }],
+        [{ text: t.balance, callback_data: 'menu_balance' }, { text: t.deposit, callback_data: 'menu_deposit' }],
+        [{ text: t.withdraw, callback_data: 'menu_withdraw' }, { text: t.room, callback_data: 'menu_room' }],
+        [{ text: t.help, callback_data: 'menu_help' }]
       ]
     }
   }
@@ -44,7 +44,27 @@ function getMainMenu() {
 
 // /start command
 bot.start((ctx) => {
-  ctx.reply('Welcome to GOBINGO! 🎰\nChoose an option from the menu below:', getMainMenu())
+  ctx.reply('Please select your language / እባክዎ ቋንቋ ይምረጡ:', {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '🇬🇧 English', callback_data: 'lang_en' },
+          { text: '🇪🇹 አማርኛ', callback_data: 'lang_am' }
+        ]
+      ]
+    }
+  })
+})
+
+// language selection handlers
+bot.action('lang_en', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.reply('Language set to English.', getMainMenu('en'))
+})
+
+bot.action('lang_am', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.reply('ቋንቋ ወደ አማርኛ ተቀይሯል።', getMainMenu('am'))
 })
 
 // /menu command

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useLanguage } from '../LanguageContext'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 const stakes = [10,50,100]
@@ -26,6 +27,7 @@ const AMHARIC_INSTRUCTIONS = `እንኳን ወደ ጎቢንጎ በደህና መ�
 export default function Lobby() {
   const navigate = useNavigate()
   const { t, i18n } = useTranslation()
+  const { changeLanguage } = useLanguage()
 
   const [walletBalance, setWalletBalance] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -44,7 +46,7 @@ export default function Lobby() {
   }, [])
 
   const toggleLanguage = () => {
-    i18n.changeLanguage(i18n.language === 'en' ? 'am' : 'en')
+    changeLanguage(i18n.language === 'en' ? 'am' : 'en')
   }
 
   const handleJoin = async (stake) => {
