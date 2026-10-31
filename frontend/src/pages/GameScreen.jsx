@@ -82,6 +82,7 @@ const GameScreen = () => {
     });
 
     socket.on('new_number_called', ({ number, letter }) => {
+      console.log("Received number from backend:", { number, letter })
       setCurrentBall({ number, letter });
       setCalledNumbers(prev => [...prev, number]);
       setCalledHistory(prev => [...prev.slice(-4), { number, letter }]);
