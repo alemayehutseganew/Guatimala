@@ -105,48 +105,106 @@ bot.on('text', async (ctx) => {
   if (state === 'WAITING_FOR_RECEIPT') {
     const smsText = ctx.message.text
     const parsedData = parseTelebirrSMS(smsText)
+
     if (!parsedData) {
-      return ctx.reply('Invalid receipt format. Please copy the whole SMS from Telebirr.')
+      return ctx.reply('❌ Invalid receipt format. Please copy the entire SMS you received from Telebirr and paste it here.')
     }
+
     try {
-      const res = await fetch(`${API_BASE}/api/wallet/deposit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: ctx.from.id, amount: parsedData.amount, reference: parsedData.transactionId }),
-      })
-      const data = await res.json()
-      if (data.success) {
-        ctx.reply(`✅ Deposit of ETB ${parsedData.amount} successful! Your new balance is ETB ${data.newBalance}.`)
-      } else {
-        ctx.reply(`❌ ${data.error || 'Verification failed'}`)
+      const existingPayment = await db('payments').where({ transaction_reference: parsedData.transactionId }).first()
+      if (existingPayment) {
+        return ctx.reply('❌ This Telebirr receipt has already been used.')
       }
-    } catch (e) {
-      ctx.reply('❌ Network error')
+
+      const user = await db('users').where({ telegram_id: ctx.from.id }).first()
+      if (!user) {
+        return ctx.reply('❌ User not found. Please open the Mini App first to register.')
+      }
+
+      await db.transaction(async (trx) => {
+        await trx('payments').insert({
+          user_id: user.id,
+          amount: parsedData.amount,
+          transaction_reference: parsedData.transactionId,
+          provider: 'telebirr',
+          status: 'completed',
+          type: 'deposit',
+          provider_response: { payerName: parsedData.payerName },
+        })
+
+        await trx('users').where({ id: user.id }).increment('wallet_balance', parsedData.amount)
+
+        const hasLedger = await trx.schema.hasTable('financial_ledger')
+        if (hasLedger) {
+          await trx('financial_ledger').insert({
+            user_id: user.id,
+            amount: parsedData.amount,
+            type: 'DEPOSIT',
+            reference: parsedData.transactionId,
+            created_at: new Date(),
+          })
+        }
+      })
+
+      const updatedUser = await db('users').where({ id: user.id }).first()
+      ctx.reply(`✅ Deposit of ETB ${Number(parsedData.amount).toFixed(2)} successful!\n\nYour new balance is ETB ${Number(updatedUser.wallet_balance).toFixed(2)}.`)
+    } catch (err) {
+      console.error('Bot Deposit Error:', err)
+      ctx.reply('❌ An error occurred while processing your deposit. Please try again later.')
     }
+
     delete userStates[ctx.from.id]
     return
   }
 
   if (state === 'WAITING_FOR_WITHDRAW_AMOUNT') {
     const amount = Number(ctx.message.text)
+
     if (isNaN(amount) || amount < 100) {
-      return ctx.reply('Invalid amount. Minimum withdrawal is 100 ETB.')
+      return ctx.reply('❌ Invalid amount. Minimum withdrawal is 100 ETB.')
     }
+
     try {
-      const res = await fetch(`${API_BASE}/api/wallet/withdraw`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: ctx.from.id, amount, provider: 'telebirr', phoneNumber: '' }),
-      })
-      const data = await res.json()
-      if (data.success) {
-        ctx.reply(`✅ Withdrawal request for ETB ${amount} received. Our team will process it shortly.`)
-      } else {
-        ctx.reply(`❌ ${data.error || 'Failed'}`)
+      const user = await db('users').where({ telegram_id: ctx.from.id }).first()
+      if (!user) {
+        return ctx.reply('❌ User not found.')
       }
-    } catch (e) {
-      ctx.reply('❌ Network error')
+
+      if (Number(user.wallet_balance) < amount) {
+        return ctx.reply('❌ Insufficient balance for this withdrawal.')
+      }
+
+      await db.transaction(async (trx) => {
+        await trx('users').where({ id: user.id }).decrement('wallet_balance', amount)
+
+        await trx('payments').insert({
+          user_id: user.id,
+          amount: amount,
+          provider: 'telebirr',
+          status: 'pending',
+          type: 'withdrawal',
+          transaction_reference: `WD-${Date.now()}-${user.id}`,
+        })
+
+        const hasLedger = await trx.schema.hasTable('financial_ledger')
+        if (hasLedger) {
+          await trx('financial_ledger').insert({
+            user_id: user.id,
+            amount: -amount,
+            type: 'WITHDRAWAL',
+            reference: 'PENDING',
+            created_at: new Date(),
+          })
+        }
+      })
+
+      const updatedUser = await db('users').where({ id: user.id }).first()
+      ctx.reply(`✅ Withdrawal request for ETB ${amount.toFixed(2)} submitted successfully!\n\nYour remaining balance is ETB ${Number(updatedUser.wallet_balance).toFixed(2)}. Our admin team will process the payment shortly.`)
+    } catch (err) {
+      console.error('Bot Withdraw Error:', err)
+      ctx.reply('❌ An error occurred while processing your withdrawal. Please try again later.')
     }
+
     delete userStates[ctx.from.id]
     return
   }
