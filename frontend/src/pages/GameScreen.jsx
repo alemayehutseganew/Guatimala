@@ -187,7 +187,7 @@ const GameScreen = () => {
           <div className="bg-[#4a5568] p-2 rounded-lg shadow-md">
             <div className="grid grid-cols-5 gap-1">
               {['B', 'I', 'N', 'G', 'O'].map((letter) => (
-                <div key={letter} className={`text-center italic font-black text-lg tracking-widest py-1 rounded text-white shadow-inner ${getBallColor(letter).split(' ')[0]}`}>
+                <div key={letter} className={`text-center text-xl py-1 rounded text-white ibm-plex-mono-bold-italic ${getBallColor(letter).split(' ')[0]}`}>
                   {letter}
                 </div>
               ))}
@@ -223,7 +223,7 @@ const GameScreen = () => {
               
               <div className="grid grid-cols-5 gap-1 mb-2">
                 {['B', 'I', 'N', 'G', 'O'].map((letter) => (
-                  <div key={letter} className={`text-center font-bold py-1 rounded text-white ${getBallColor(letter).split(' ')[0]}`}>
+                  <div key={letter} className={`text-center text-xl py-1 rounded text-white ibm-plex-mono-bold-italic ${getBallColor(letter).split(' ')[0]}`}>
                     {letter}
                   </div>
                 ))}
