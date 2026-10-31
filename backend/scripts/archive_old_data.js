@@ -1,5 +1,5 @@
 require('dotenv').config()
-const db = require('../db')
+const db = require('../src/db');
 
 async function archiveOldData() {
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
