@@ -1,6 +1,15 @@
 const { Telegraf } = require('telegraf')
 const db = require('../db')
 
+async function getUserLanguage(telegramId) {
+  const user = await db('users').where({ telegram_id: telegramId }).first()
+  return user?.language || 'en'
+}
+
+async function setUserLanguage(telegramId, lang) {
+  await db('users').where({ telegram_id: telegramId }).update({ language: lang })
+}
+
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN)
 
 // Force the menu button to show the command list
@@ -59,128 +68,128 @@ bot.start((ctx) => {
 // language selection handlers
 bot.action('lang_en', async (ctx) => {
   await ctx.answerCbQuery()
+  try { await setUserLanguage(ctx.from.id, 'en') } catch (e) { console.error(e) }
   ctx.reply('Language set to English.', getMainMenu('en'))
 })
 
 bot.action('lang_am', async (ctx) => {
   await ctx.answerCbQuery()
+  try { await setUserLanguage(ctx.from.id, 'am') } catch (e) { console.error(e) }
   ctx.reply('ቋንቋ ወደ አማርኛ ተቀይሯል።', getMainMenu('am'))
 })
 
 // /menu command
-bot.command('menu', (ctx) => {
-  ctx.reply('Here is the main menu:', getMainMenu())
+bot.command('menu', async (ctx) => {
+  const lang = await getUserLanguage(ctx.from.id)
+  const msg = lang === 'am' ? 'ዋና ምናሌ:' : 'Here is the main menu:'
+  ctx.reply(msg, getMainMenu(lang))
 })
 
 // /play command
-bot.command('play', (ctx) => {
-  ctx.reply('Tap the button below to launch the game:', {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '🎰 Play Bingo', web_app: { url: 'https://guatimala.vercel.app' } }]
-      ]
-    }
-  })
+bot.command('play', async (ctx) => {
+  const lang = await getUserLanguage(ctx.from.id)
+  const msg = lang === 'am' ? 'ጨዋታውን ለመጀመር ከታች ያለውን ቁልፍ ይጫኑ:' : 'Tap the button below to launch the game:'
+  const btn = lang === 'am' ? '🎰 ቢንጎ ይጫወቱ' : '🎰 Play Bingo'
+  ctx.reply(msg, { reply_markup: { inline_keyboard: [[{ text: btn, web_app: { url: 'https://guatimala.vercel.app' } }]] } })
 })
 
 // /balance command
 bot.command('balance', async (ctx) => {
-  try {
-    const user = await db('users').where({ telegram_id: ctx.from.id }).first()
-    if (user) {
-      ctx.reply(`💰 Your current balance is: ETB ${Number(user.demo_wallet_balance || 0).toFixed(2)}`)
-    } else {
-      ctx.reply('User not found. Please open the Mini App first to register.')
-    }
-  } catch (error) {
-    console.error(error)
-    ctx.reply('Failed to fetch balance. Please try again later.')
+  const lang = await getUserLanguage(ctx.from.id)
+  const user = await db('users').where({ telegram_id: ctx.from.id }).first()
+  if (user) {
+    const msg = lang === 'am'
+      ? `💰 የእርስዎ ቀሪ ሂሳብ: ${Number(user.demo_wallet_balance || 0).toFixed(2)} ብር`
+      : `💰 Your current balance is: ETB ${Number(user.demo_wallet_balance || 0).toFixed(2)}`
+    ctx.reply(msg)
+  } else {
+    ctx.reply(lang === 'am' ? 'ተጠቃሚ አልተገኘም። እባክዎ መጀመሪያ መተግበሪያውን ይክፈቱ።' : 'User not found. Please open the Mini App first to register.')
   }
 })
 
 // /deposit command
-bot.command('deposit', (ctx) => {
-  ctx.reply('To deposit funds, please open the Mini App and go to the Wallet section.', {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Open Wallet in App', web_app: { url: 'https://guatimala.vercel.app/wallet' } }]
-      ]
-    }
-  })
+bot.command('deposit', async (ctx) => {
+  const lang = await getUserLanguage(ctx.from.id)
+  const msg = lang === 'am'
+    ? 'ገንዘብ ለማስገባት እባክዎ መተግበሪያውን ይክፈቱ እና ወደ ዋሌት ይሂዱ።'
+    : 'To deposit funds, please open the Mini App and go to the Wallet section.'
+  const btn = lang === 'am' ? 'ዋሌት ክፈት' : 'Open Wallet'
+  ctx.reply(msg, { reply_markup: { inline_keyboard: [[{ text: btn, web_app: { url: 'https://guatimala.vercel.app/wallet' } }]] } })
 })
 
 // /withdraw command
-bot.command('withdraw', (ctx) => {
-  ctx.reply('To withdraw funds, please open the Mini App and navigate to the Wallet section.', {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Open Wallet in App', web_app: { url: 'https://guatimala.vercel.app/wallet' } }]
-      ]
-    }
-  })
+bot.command('withdraw', async (ctx) => {
+  const lang = await getUserLanguage(ctx.from.id)
+  const msg = lang === 'am'
+    ? 'ገንዘብ ለማውጣት እባክዎ መተግበሪያውን ይክፈቱ እና ወደ ዋሌት ይሂዱ።'
+    : 'To withdraw funds, please open the Mini App and navigate to the Wallet section.'
+  const btn = lang === 'am' ? 'ዋሌት ክፈት' : 'Open Wallet'
+  ctx.reply(msg, { reply_markup: { inline_keyboard: [[{ text: btn, web_app: { url: 'https://guatimala.vercel.app/wallet' } }]] } })
 })
 
 // /help command
-bot.command('help', (ctx) => {
-  ctx.reply(`📖 *How to Play GOBINGO*\n\n1. Open the Mini App.\n2. Select a stake (e.g., 10 Birr).\n3. Choose a card from the 400 available cards.\n4. Wait for the game to start.\n5. Tap the numbers on your card when they are called.\n6. Win by completing a row, column, diagonal, or four corners.\n\nGood luck!`, { parse_mode: 'Markdown' })
+bot.command('help', async (ctx) => {
+  const lang = await getUserLanguage(ctx.from.id)
+  const msg = lang === 'am'
+    ? `📖 *እንዴት መጫወት እንደሚቻል*\n\n1. መተግበሪያውን ይክፈቱ።\n2. ውለታ ይምረጡ (ለምሳሌ 10 ብር)።\n3. ከ400 ካርዶች አንዱን ይምረጡ።\n4. ጨዋታው እስኪጀምር ይጠብቁ።\n5. ቁጥሮች ሲጠሩ በካርድዎ ላይ ይንኩ።\n6. መስመር ወይም 4 ማእዘናት ሲሟሉ ያሸንፋሉ።\n\nመልካም ጨዋታ!`
+    : `📖 *How to Play GOBINGO*\n\n1. Open the Mini App.\n2. Select a stake (e.g., 10 Birr).\n3. Choose a card from the 400 available cards.\n4. Wait for the game to start.\n5. Tap the numbers on your card when they are called.\n6. Win by completing a row, column, diagonal, or four corners.\n\nGood luck!`
+  ctx.reply(msg, { parse_mode: 'Markdown' })
 })
 
 // Handle "Check Balance" button
 bot.action('menu_balance', async (ctx) => {
   await ctx.answerCbQuery()
-  try {
-    const user = await db('users').where({ telegram_id: ctx.from.id }).first()
-    if (user) {
-      ctx.reply(`💰 Your current balance is: ETB ${Number(user.demo_wallet_balance || 0).toFixed(2)}`)
-    } else {
-      ctx.reply('User not found. Please open the Mini App first to register.')
-    }
-  } catch (error) {
-    console.error(error)
-    ctx.reply('Failed to fetch balance.')
+  const lang = await getUserLanguage(ctx.from.id)
+  const user = await db('users').where({ telegram_id: ctx.from.id }).first()
+  if (user) {
+    const msg = lang === 'am'
+      ? `💰 የእርስዎ ቀሪ ሂሳብ: ${Number(user.demo_wallet_balance || 0).toFixed(2)} ብር`
+      : `💰 Your current balance is: ETB ${Number(user.demo_wallet_balance || 0).toFixed(2)}`
+    ctx.reply(msg)
+  } else {
+    ctx.reply(lang === 'am' ? 'ተጠቃሚ አልተገኘም።' : 'User not found. Please open the Mini App first to register.')
   }
 })
 
 // Handle "Deposit" button
 bot.action('menu_deposit', async (ctx) => {
   await ctx.answerCbQuery()
-  ctx.reply('To deposit funds, please open the Mini App and go to the Wallet section.', {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Open Wallet in App', web_app: { url: 'https://guatimala.vercel.app/wallet' } }]
-      ]
-    }
-  })
+  const lang = await getUserLanguage(ctx.from.id)
+  const msg = lang === 'am'
+    ? 'ገንዘብ ለማስገባት እባክዎ መተግበሪያውን ይክፈቱ እና ወደ ዋሌት ይሂዱ።'
+    : 'To deposit funds, please open the Mini App and go to the Wallet section.'
+  const btn = lang === 'am' ? 'ዋሌት ክፈት' : 'Open Wallet'
+  ctx.reply(msg, { reply_markup: { inline_keyboard: [[{ text: btn, web_app: { url: 'https://guatimala.vercel.app/wallet' } }]] } })
 })
 
 // Handle "Withdraw" button
 bot.action('menu_withdraw', async (ctx) => {
   await ctx.answerCbQuery()
-  ctx.reply('To withdraw funds, please open the Mini App and navigate to the Wallet section.', {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Open Wallet in App', web_app: { url: 'https://guatimala.vercel.app/wallet' } }]
-      ]
-    }
-  })
+  const lang = await getUserLanguage(ctx.from.id)
+  const msg = lang === 'am'
+    ? 'ገንዘብ ለማውጣት እባክዎ መተግበሪያውን ይክፈቱ እና ወደ ዋሌት ይሂዱ።'
+    : 'To withdraw funds, please open the Mini App and navigate to the Wallet section.'
+  const btn = lang === 'am' ? 'ዋሌት ክፈት' : 'Open Wallet'
+  ctx.reply(msg, { reply_markup: { inline_keyboard: [[{ text: btn, web_app: { url: 'https://guatimala.vercel.app/wallet' } }]] } })
 })
 
 // Handle "My Room" button
 bot.action('menu_room', async (ctx) => {
   await ctx.answerCbQuery()
-  ctx.reply('To join a room, please open the Mini App and select a stake.', {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Open Lobby', web_app: { url: 'https://guatimala.vercel.app' } }]
-      ]
-    }
-  })
+  const lang = await getUserLanguage(ctx.from.id)
+  const msg = lang === 'am' ? 'ክፍል ለመቀላቀል መተግበሪያውን ይክፈቱ እና ውለታ ይምረጡ።' : 'To join a room, please open the Mini App and select a stake.'
+  const btn = lang === 'am' ? 'ሎቢ ክፈት' : 'Open Lobby'
+  ctx.reply(msg, { reply_markup: { inline_keyboard: [[{ text: btn, web_app: { url: 'https://guatimala.vercel.app' } }]] } })
 })
 
 // Handle "Help" button
 bot.action('menu_help', async (ctx) => {
   await ctx.answerCbQuery()
-  ctx.reply(`📖 *How to Play GOBINGO*\n\n1. Open the Mini App.\n2. Select a stake (e.g., 10 Birr).\n3. Choose a card from the 400 available cards.\n4. Wait for the game to start.\n5. Tap the numbers on your card when they are called.\n6. Win by completing a row, column, diagonal, or four corners.\n\nGood luck!`, { parse_mode: 'Markdown' })
+  const lang = await getUserLanguage(ctx.from.id)
+  const msg = lang === 'am'
+    ? `📖 *እንዴት መጫወት እንደሚቻል*\n\n1. መተግበሪያውን ይክፈቱ።\n2. ውለታ ይምረጡ (ለምሳሌ 10 ብር)።\n3. ከ400 ካርዶች አንዱን ይምረጡ።\n4. ጨዋታው እስኪጀምር ይጠብቁ።\n5. ቁጥሮች ሲጠሩ በካርድዎ ላይ ይንኩ።\n6. መስመር ወይም 4 ማእዘናት ሲሟሉ ያሸንፋሉ።\n\nመልካም ጨዋታ!`
+    : `📖 *How to Play GOBINGO*\n\n1. Open the Mini App.\n2. Select a stake (e.g., 10 Birr).\n3. Choose a card from the 400 available cards.\n4. Wait for the game to start.\n5. Tap the numbers on your card when they are called.\n6. Win by completing a row, column, diagonal, or four corners.\n\nGood luck!`
+  ctx.reply(msg, { parse_mode: 'Markdown' })
 })
 
 function launch() {
