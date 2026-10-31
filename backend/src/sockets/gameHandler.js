@@ -38,7 +38,7 @@ function initGameHandler(io) {
 
         io.to(roomId).emit('room_update', { players: playerCount, stake: rooms[roomId].stake })
 
-        if (playerCount >= 1 && rooms[roomId].status === 'WAITING') {
+        if (playerCount >= 2 && rooms[roomId].status === 'WAITING') {
           rooms[roomId].status = 'COUNTDOWN'
           console.log(`[Game] Starting countdown for ${roomId}`)
 
