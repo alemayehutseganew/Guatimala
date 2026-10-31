@@ -84,9 +84,24 @@ bot.command('deposit', async (ctx) => {
 })
 
 bot.action('menu_deposit', async (ctx) => {
-  await ctx.answerCbQuery()
-  userStates[ctx.from.id] = 'WAITING_FOR_RECEIPT'
-  ctx.reply('💳 *To Deposit:*\n\n👤 *Name:* Alemayehu Tseganew\n📱 *Telebirr:* 0963184624\n\n1. Open your Telebirr app\n2. Send money to the number above\n3. Copy the SMS you receive\n\n👇 Now paste the full SMS here:', { parse_mode: 'Markdown' })
+  try {
+    await ctx.answerCbQuery()
+
+    userStates[ctx.from.id] = 'WAITING_FOR_RECEIPT'
+
+    const msg = `💳 To Deposit:\n\n` +
+      `👤 Name: Alemayehu Tseganew\n` +
+      `📱 Telebirr: 0963184624\n\n` +
+      `1. Open your Telebirr app\n` +
+      `2. Send money to the number above\n` +
+      `3. Copy the SMS you receive\n\n` +
+      `👇 Now paste the full SMS here:`
+
+    ctx.reply(msg)
+  } catch (err) {
+    console.error('Deposit Error:', err)
+    ctx.reply('❌ An error occurred. Please try again.')
+  }
 })
 
 // Withdraw flow
@@ -102,6 +117,7 @@ bot.action('menu_withdraw', async (ctx) => {
 
 // Text handler for flows
 bot.on('text', async (ctx) => {
+  try {
   const state = userStates[ctx.from.id]
   if (!state) return
 
@@ -216,14 +232,28 @@ bot.on('text', async (ctx) => {
     delete userStates[ctx.from.id]
     return
   }
+  } catch (err) {
+    console.error('Text Handler Error:', err)
+    ctx.reply('❌ Failed to process your request. Please try again.')
+  }
 })
 
 // Other actions
 bot.action('menu_balance', async (ctx) => {
-  await ctx.answerCbQuery()
-  const user = await db('users').where({ telegram_id: ctx.from.id }).first()
-  if (user) ctx.reply(`💰 Your current balance is: ETB ${Number(user.wallet_balance || 0).toFixed(2)}`)
-  else ctx.reply('User not found. Please open the Mini App first to register.')
+  try {
+    await ctx.answerCbQuery()
+    const user = await db('users').where({ telegram_id: ctx.from.id }).first()
+
+    if (!user) {
+      return ctx.reply('User not found. Please open the Mini App first to register.')
+    }
+
+    const balance = user.wallet_balance || 0
+    ctx.reply(`💰 Your current balance is: ETB ${Number(balance).toFixed(2)}`)
+  } catch (err) {
+    console.error('Balance Error:', err)
+    ctx.reply('❌ Failed to fetch balance. Please try again later.')
+  }
 })
 bot.action('menu_room', async (ctx) => {
   await ctx.answerCbQuery()
@@ -234,6 +264,10 @@ bot.action('menu_room', async (ctx) => {
 bot.action('menu_help', async (ctx) => {
   await ctx.answerCbQuery()
   ctx.reply('📖 How to Play GOBINGO\n\n1. Open the Mini App.\n2. Select a stake.\n3. Choose a card.\n4. Wait for game start.\n5. Tap numbers when called.\n6. Complete a line and press BINGO!\n\nGood luck!', { parse_mode: 'Markdown' })
+})
+
+bot.catch((err, ctx) => {
+  console.error(`Ooops, encountered an error for ${ctx.updateType}`, err)
 })
 
 function launch() {
