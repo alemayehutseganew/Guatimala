@@ -13,7 +13,7 @@ export default function CardSelection() {
 
   const [cards, setCards] = useState([])
   const [loading, setLoading] = useState(true)
-  const [selectedSlots, setSelectedSlots] = useState({ slot1: null, slot2: null })
+  const [selectedCards, setSelectedCards] = useState([])
   const [previewCard, setPreviewCard] = useState(null)
 
   useEffect(() => {
@@ -37,35 +37,29 @@ export default function CardSelection() {
     return () => { cancelled = true }
   }, [roomId, navigate])
 
-  const handleAssignSlot = (slotNum, card) => {
-    const key = slotNum === 1 ? 'slot1' : 'slot2'
-    setSelectedSlots((prev) => {
-      if (prev[key]?.id === card.id) {
-        return { ...prev, [key]: null }
-      }
-      return { ...prev, [key]: card }
+  const confirmCard = (card) => {
+    setSelectedCards((prev) => {
+      if (prev.includes(card.id)) return prev.filter((id) => id !== card.id)
+      if (prev.length >= 2) return prev
+      return [...prev, card.id]
     })
+    setPreviewCard(null)
   }
 
-  const handleConfirmAndPlay = async () => {
-    const selectedIds = [selectedSlots.slot1, selectedSlots.slot2]
-      .filter(Boolean)
-      .map((c) => c.id)
-
-    if (selectedIds.length === 0) return
-
+  const handlePlayGame = async () => {
+    if (selectedCards.length === 0) return
     const userId = localStorage.getItem('dbUserId') || 1
     try {
       await fetch(`${API_BASE}/api/rooms/${roomId}/select-cards`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: Number(userId), cardIds: selectedIds }),
+        body: JSON.stringify({ userId: Number(userId), cardIds: selectedCards }),
       })
     } catch (e) {
       console.error('Failed to save selected cards', e)
     }
-    localStorage.setItem('selectedCards', JSON.stringify(selectedIds))
-    localStorage.setItem('selectedCardIds', JSON.stringify(selectedIds))
+    localStorage.setItem('selectedCards', JSON.stringify(selectedCards))
+    localStorage.setItem('selectedCardIds', JSON.stringify(selectedCards))
     localStorage.setItem('stake', stake)
     navigate(`/game?stake=${stake}&roomId=${roomId}`)
   }
@@ -76,12 +70,6 @@ export default function CardSelection() {
         Loading cards...
       </div>
     )
-  }
-
-  const slotLabel = (card) => {
-    if (selectedSlots.slot1?.id === card.id) return 'Slot 1'
-    if (selectedSlots.slot2?.id === card.id) return 'Slot 2'
-    return null
   }
 
   return (
@@ -102,22 +90,16 @@ export default function CardSelection() {
 
       <div className="grid grid-cols-8 gap-2 mb-4">
         {cards.map((card) => {
-          const label = slotLabel(card)
-          const isAssigned = !!label
+          const isSelected = selectedCards.includes(card.id)
           return (
             <button
               key={card.id}
               onClick={() => setPreviewCard(card)}
-              className={`bingo-3d-box aspect-square flex items-center justify-center text-sm font-bold transition-colors relative ${
-                isAssigned ? 'ring-2 ring-green-500' : 'text-[#112A46]'
+              className={`bingo-3d-box aspect-square flex items-center justify-center text-sm font-bold transition-colors ${
+                isSelected ? 'bg-green-500 text-white' : 'text-[#112A46]'
               }`}
             >
               {card.card_number}
-              {label && (
-                <span className="absolute -top-1 -right-1 bg-green-500 text-white text-[8px] font-bold px-1 rounded">
-                  {label}
-                </span>
-              )}
             </button>
           )
         })}
@@ -125,14 +107,14 @@ export default function CardSelection() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-[#0d2238] p-3 flex items-center justify-between gap-2 z-40">
         <div className="text-xs">
-          Slot 1: {selectedSlots.slot1 ? `Card ${selectedSlots.slot1.id}` : '—'} | Slot 2: {selectedSlots.slot2 ? `Card ${selectedSlots.slot2.id}` : '—'}
+          Cards Selected: {selectedCards.length} / 2
         </div>
         <button
-          onClick={handleConfirmAndPlay}
-          disabled={!selectedSlots.slot1 && !selectedSlots.slot2}
+          onClick={handlePlayGame}
+          disabled={selectedCards.length === 0}
           className="bg-green-500 text-white font-bold px-4 py-2 rounded disabled:opacity-50"
         >
-          Confirm & Play
+          Play Game
         </button>
       </div>
 
@@ -144,7 +126,7 @@ export default function CardSelection() {
             </button>
 
             <h3 className="text-xl font-bold text-[#112A46] mb-4 text-center">
-              Card {previewCard?.id}
+              Card {previewCard.id}
             </h3>
 
             <div className="grid grid-cols-5 gap-1 mb-2">
@@ -156,7 +138,7 @@ export default function CardSelection() {
             </div>
 
             <div className="grid grid-cols-5 gap-1 mb-6">
-              {previewCard?.matrix?.flat().map((num, index) => {
+              {previewCard.matrix.flat().map((num, index) => {
                 const isFree = index === 12 || num === 'FREE'
                 return (
                   <div
@@ -171,20 +153,12 @@ export default function CardSelection() {
               })}
             </div>
 
-            <div className="flex justify-between gap-2 mt-4">
-              <button
-                onClick={() => { handleAssignSlot(1, previewCard); setPreviewCard(null) }}
-                className={`flex-1 py-2 rounded font-bold ${selectedSlots.slot1?.id === previewCard.id ? 'bg-green-600 text-white' : 'bg-gray-300 text-black'}`}
-              >
-                {selectedSlots.slot1?.id === previewCard.id ? 'Slot 1 (Selected)' : 'Select for Slot 1'}
-              </button>
-              <button
-                onClick={() => { handleAssignSlot(2, previewCard); setPreviewCard(null) }}
-                className={`flex-1 py-2 rounded font-bold ${selectedSlots.slot2?.id === previewCard.id ? 'bg-green-600 text-white' : 'bg-gray-300 text-black'}`}
-              >
-                {selectedSlots.slot2?.id === previewCard.id ? 'Slot 2 (Selected)' : 'Select for Slot 2'}
-              </button>
-            </div>
+            <button
+              onClick={() => confirmCard(previewCard)}
+              className="w-full bg-[#112A46] text-white font-bold py-3 rounded-lg shadow-md hover:bg-[#1e3a5f]"
+            >
+              {selectedCards.includes(previewCard.id) ? 'Deselect Card' : 'Confirm Card'}
+            </button>
           </div>
         </div>
       )}
