@@ -44,6 +44,7 @@ const GameScreen = () => {
   const [spectatorBall, setSpectatorBall] = useState(null);
   const [toast, setToast] = useState('');
   const [bingoMessage, setBingoMessage] = useState(null);
+  const [gameResult, setGameResult] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
   // Audio cues
