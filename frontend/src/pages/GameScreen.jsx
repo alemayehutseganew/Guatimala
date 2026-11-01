@@ -111,7 +111,11 @@ const GameScreen = () => {
 
     socket.on('game_over', (data) => {
       const isWinner = data.winner && (data.winner.userId === userId || data.winner.socketId === socket.id);
-      setToast(isWinner ? "🎉 YOU WON! 🎉" : "Game Over. You lost.");
+      if (isWinner) {
+        setToast("🎉 YOU WON! 🎉");
+      } else {
+        setToast(`🎲 Game Over! The winner is ${data.winnerName || 'a player'}. Better luck next time!`);
+      }
       setTimeout(() => setToast(''), 5000);
       if (isSpectator) {
         setIsSpectator(false);
@@ -272,7 +276,10 @@ const GameScreen = () => {
               I'm Ready
             </button>
             <button
-              onClick={() => navigate('/lobby')}
+              onClick={() => {
+              socket.emit('leave_room', { roomId, userId });
+              navigate('/lobby');
+            }}
               className="w-full bg-red-600 hover:bg-red-500 text-white font-bold text-lg py-3 rounded-xl transition-colors"
             >
               Leave Room

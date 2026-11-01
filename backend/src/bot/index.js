@@ -155,7 +155,7 @@ bot.on('text', async (ctx) => {
         provider: 'telebirr',
         status: 'completed',
         type: 'deposit',
-        provider_response: { payerName: official.receiver },
+        provider_response: { payerName: official.payerName, receiverName: official.receiverName },
       })
       await trx('users').where({ id: user.id }).increment('wallet_balance', official.amount)
       const hasLedger = await trx.schema.hasTable('financial_ledger')

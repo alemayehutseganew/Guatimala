@@ -281,6 +281,12 @@ function initGameHandler(io) {
           return socket.emit('bingo_result', { success: false, message: 'User not found' })
         }
 
+
+        // Prevent double-claim
+        if (rooms[roomId] && rooms[roomId].claimedBy) {
+          return socket.emit('bingo_result', { success: false, message: 'Bingo already claimed for this game.' })
+        }
+
         const selections = await db('room_card_selections').where({ room_id: roomId, user_id: user.id })
         const selection = selections.find((s) => (s.card_id || s.card_number) == cardId) || selections[0]
 
@@ -344,7 +350,7 @@ function initGameHandler(io) {
             message: `BINGO! You won ${payoutAmount} ETB with a ${result.pattern}!`,
             amount: payoutAmount,
           })
-          socket.to(roomId).emit('game_over', { winner: { userId: user.id, payout: payoutAmount } })
+          socket.to(roomId).emit('game_over', { winner: { userId: user.id, payout: payoutAmount }, winnerName: user.first_name || user.username || 'Player' })
         } else {
           socket.emit('bingo_result', { success: false, message: 'Not a valid Bingo. Keep playing!' })
         }
