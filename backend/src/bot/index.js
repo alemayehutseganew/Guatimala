@@ -128,7 +128,7 @@ bot.on('text', async (ctx) => {
       return ctx.reply('❌ Invalid receipt format. Please copy the entire SMS you received from Telebirr and paste it here.')
     }
 
-    const official = await verifyTelebirrReceipt(parsedFromSMS.transactionId)
+    const official = await verifyTelebirrReceipt(smsText)
     if (!official.success) {
       return ctx.reply(`❌ Verification failed: ${official.error}`)
     }
