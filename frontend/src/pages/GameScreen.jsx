@@ -38,6 +38,10 @@ const GameScreen = () => {
   const [countdown, setCountdown] = useState(null);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameInProgress, setGameInProgress] = useState(false);
+  const [isSpectator, setIsSpectator] = useState(false);
+  const activeRoomId = sessionStorage.getItem('activeRoomId');
+  const [spectatorNumbers, setSpectatorNumbers] = useState([]);
+  const [spectatorBall, setSpectatorBall] = useState(null);
   const [toast, setToast] = useState('');
   const [bingoMessage, setBingoMessage] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -93,17 +97,26 @@ const GameScreen = () => {
     });
 
     socket.on('new_number_called', ({ number, letter }) => {
-      console.log("Received number from backend:", { number, letter })
-      setCurrentBall({ number, letter });
-      setCalledNumbers(prev => [...prev, number]);
-      setCalledHistory(prev => [...prev.slice(-4), { number, letter }]);
-      if (soundEnabled) speakNumber(number, letter);
+      if (isSpectator) {
+        setSpectatorBall({ number, letter });
+        setSpectatorNumbers(prev => [...prev, number]);
+      } else {
+        console.log("Received number from backend:", { number, letter })
+        setCurrentBall({ number, letter });
+        setCalledNumbers(prev => [...prev, number]);
+        setCalledHistory(prev => [...prev.slice(-4), { number, letter }]);
+        if (soundEnabled) speakNumber(number, letter);
+      }
     });
 
     socket.on('game_over', (data) => {
       const isWinner = data.winner && (data.winner.userId === userId || data.winner.socketId === socket.id);
       setToast(isWinner ? "🎉 YOU WON! 🎉" : "Game Over. You lost.");
       setTimeout(() => setToast(''), 5000);
+      if (isSpectator) {
+        setIsSpectator(false);
+        sessionStorage.removeItem('activeRoomId');
+      }
     });
 
     socket.on('bingo_result', (data) => {
@@ -124,6 +137,19 @@ const GameScreen = () => {
     };
   }, [socket, roomId, userId, stake, soundEnabled]);
 
+  // Spectator: join active game and sync state
+  useEffect(() => {
+    if (!socket || !activeRoomId) return;
+    setIsSpectator(true);
+    socket.emit('join_as_spectator', { roomId: activeRoomId, userId });
+    socket.on('spectator_sync', (data) => {
+      setSpectatorNumbers(data.calledNumbers || []);
+      setSpectatorBall(data.currentBall || null);
+    });
+    return () => {
+      socket.off('spectator_sync');
+    };
+  }, [socket, activeRoomId, userId]);
   const speakNumber = (number, letter) => {
     if (!window.speechSynthesis) return
     window.speechSynthesis.cancel()
@@ -159,35 +185,52 @@ const GameScreen = () => {
     });
   };
 
-  if (countdown === null && !gameStarted) {
+  if (isSpectator) {
     return (
-      <div className="min-h-screen bg-[#1e3a5f] text-white p-4 flex flex-col items-center justify-center">
-        <div className="bg-[#112A46] p-6 rounded-xl w-full max-w-md text-center">
-          <h2 className="text-2xl font-bold mb-4">Waiting Room</h2>
-          <p className="mb-2">Players: {playersCount} / 10</p>
-          <p className="mb-2">Tickets Sold: {tickets}</p>
-          <p className="mb-4">Ready Players: {readyPlayers}</p>
-          <button
-            onClick={() => {
-              socket.emit('player_ready', { roomId, userId })
-              setIsReady(true)
-            }}
-            disabled={isReady}
-            className="w-full bg-yellow-500 text-[#112A46] font-bold py-3 rounded mb-3 disabled:opacity-50"
-          >
-            {isReady ? 'Waiting for others...' : "I'm Ready"}
-          </button>
-          <button
-            onClick={() => navigate('/')}
-            className="w-full bg-red-500 text-white font-bold py-2 rounded"
-          >
-            Leave Room
-          </button>
+      <div className="min-h-screen bg-[#1e3a5f] text-white p-4 flex flex-col items-center">
+        <div className="w-full max-w-md bg-yellow-500 text-[#112A46] font-bold text-center py-2 rounded-t-xl flex justify-center items-center gap-2 shadow-lg">
+          <span className="animate-pulse">👀</span> LIVE SPECTATOR MODE
+        </div>
+        <div className="w-full max-w-md bg-[#112A46] p-6 rounded-b-xl shadow-2xl flex flex-col items-center border border-blue-900">
+          <div className="mb-6">
+            {spectatorBall ? (
+              <div className={`w-32 h-32 rounded-full border-8 flex flex-col items-center justify-center shadow-xl ${getBallColor(spectatorBall.letter)}`}>
+                <span className="text-2xl font-bold text-white mt-1">{spectatorBall.letter}</span>
+                <span className="text-6xl font-bold text-white">{spectatorBall.number}</span>
+              </div>
+            ) : (
+              <div className="w-32 h-32 rounded-full bg-gray-600 flex items-center justify-center animate-pulse">
+                <span className="text-4xl text-white">-</span>
+              </div>
+            )}
+          </div>
+          <p className="text-gray-400 mb-2">Numbers Called: {spectatorNumbers.length}</p>
+          <div className="grid grid-cols-5 gap-1 w-full max-h-64 overflow-y-auto p-2 bg-[#0d1f33] rounded-lg">
+            {Array.from({ length: 75 }, (_, i) => i + 1).map((num) => {
+              const isCalled = spectatorNumbers.includes(num);
+              let letter = 'B';
+              if (num > 15) letter = 'I';
+              if (num > 30) letter = 'N';
+              if (num > 45) letter = 'G';
+              if (num > 60) letter = 'O';
+              return (
+                <div
+                  key={num}
+                  className={`text-center text-xs py-1 rounded ${isCalled ? getBallColor(letter).split(' ')[0] + ' text-white font-bold' : 'bg-[#1e3a5f] text-gray-500'}`}
+                >
+                  {num}
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-6 text-center text-sm text-yellow-400 font-bold">
+            Waiting for the current game to finish...<br/>
+            Get ready to join the next round!
+          </p>
         </div>
       </div>
-    )
+    );
   }
-
 
   if (gameInProgress) {
     return (

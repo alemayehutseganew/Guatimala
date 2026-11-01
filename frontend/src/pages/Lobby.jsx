@@ -73,7 +73,8 @@ export default function Lobby() {
       }
 
       if (data.roomId) {
-        navigate(`/select-cards?roomId=${data.roomId}&stake=${stake}`)
+        sessionStorage.setItem('activeRoomId', data.activeRoomId || '');
+        navigate(`/select-cards?roomId=${data.roomId}&stake=${stake}`);
       }
     } catch (e) {
       console.error('Join room failed', e)

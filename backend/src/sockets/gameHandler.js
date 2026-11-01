@@ -106,6 +106,7 @@ function initGameHandler(io) {
             players: {},
             readyPlayers: new Set(),
             calledNumbers: new Set(),
+            latestNumber: null,
             intervalId: null
           }
         }
@@ -128,6 +129,23 @@ function initGameHandler(io) {
       } catch (err) {
         console.error('[Game] Join room error:', err)
         socket.emit('error', { message: 'Server error' })
+      }
+    })
+    socket.on('join_as_spectator', async ({ roomId, userId }) => {
+      try {
+        const room = rooms[roomId]
+        if (!room) return
+
+        socket.join(roomId)
+        console.log(`[Spectator] User ${userId} is watching room ${roomId}`)
+
+        socket.emit('spectator_sync', {
+          calledNumbers: Array.from(room.calledNumbers),
+          currentBall: room.latestNumber || null,
+          status: room.status
+        })
+      } catch (err) {
+        console.error('Spectator join error:', err)
       }
     })
     socket.on('player_ready', async ({ roomId, userId }) => {
@@ -193,6 +211,8 @@ function initGameHandler(io) {
                 if (number > 30) letter = 'N'
                 if (number > 45) letter = 'G'
                 if (number > 60) letter = 'O'
+
+                rooms[roomId].latestNumber = { number, letter }
 
                 console.log(`[Game] Calling number: ${letter} ${number}`)
                 io.to(roomId).emit('new_number_called', { number, letter })
