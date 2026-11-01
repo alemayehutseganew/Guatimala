@@ -325,10 +325,6 @@ function initGameHandler(io) {
       try {
         console.log(`[Claim] Window closed. Processing payouts for room ${roomId}...`);
         
-        const winnerCount = room.claimedBy.length;
-        const stake = room.stake;
-        const playerCount = Object.keys(room.players).length;
-        
         let winnerName = 'A Player';
         const winnerCount = room.claimedBy.length;
         const totalPlayers = Object.keys(room.players).length;
