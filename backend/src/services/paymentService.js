@@ -31,13 +31,73 @@ function parseTelebirrSMS(smsText) {
 }
 
 async function verifyTelebirrReceipt(reference) {
-  // TODO: Automated verification pending.
-  // The hosted cheki.et API cannot reach Telebirr due to Ethiopian geo-blocking.
-  // Will implement self-hosted verification on Ethiopian IP or official merchant API.
-  console.log('[verifyTelebirrReceipt] Called with reference:', reference)
-  return {
-    success: false,
-    error: 'Payment verification is currently under maintenance. Please contact support.'
+  try {
+    const apiKey = process.env.LINKS_ET_API_KEY
+    if (!apiKey) {
+      return { success: false, error: 'Verification service not configured.' }
+    }
+
+    console.log('[verifyTelebirrReceipt] Calling links.et for reference:', reference)
+
+    const response = await fetch('https://links.et/api/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey
+      },
+      body: JSON.stringify({
+        reference: reference
+      })
+    })
+
+    const data = await response.json()
+    console.log('[verifyTelebirrReceipt] links.et response status:', response.status)
+
+    if (!data.ok) {
+      return {
+        success: false,
+        error: data.error || data.message || 'Receipt not found on Telebirr servers.'
+      }
+    }
+
+    const receipt = data.receipt || {}
+
+    if (receipt.source && receipt.source !== 'telebirr-html') {
+      return { success: false, error: 'This is not a Telebirr receipt.' }
+    }
+
+    const amount = parseFloat(receipt.totalPaid || receipt.amount || receipt.settledAmount)
+    if (isNaN(amount) || amount <= 0) {
+      return { success: false, error: 'Invalid amount on receipt.' }
+    }
+
+    const OUR_NAME = 'ALEMAYEHU TSEGANEW'
+    const receiverName = receipt.creditedPartyName || receipt.receiverName || ''
+    const receiverNumber = receipt.creditedPartyNumber || receipt.receiverAccount || ''
+
+    if (receiverName && !receiverName.toUpperCase().includes(OUR_NAME)) {
+      return {
+        success: false,
+        error: `Receipt was sent to ${receiverName}, not to our platform account.`
+      }
+    }
+
+    const status = receipt.transactionStatus || receipt.status || ''
+    if (status && status.toLowerCase() !== 'completed' && status.toLowerCase() !== 'success') {
+      return { success: false, error: `Transaction status is "${status}", not completed.` }
+    }
+
+    return {
+      success: true,
+      amount: amount,
+      payerName: receipt.payerName || 'Unknown',
+      receiverName: receiverName || OUR_NAME,
+      transactionId: receipt.receiptNo || receipt.reference || reference,
+      status: 'Completed'
+    }
+  } catch (err) {
+    console.error('links.et verification error:', err.message)
+    return { success: false, error: 'Unable to reach verification service. Please try again later.' }
   }
 }
 
