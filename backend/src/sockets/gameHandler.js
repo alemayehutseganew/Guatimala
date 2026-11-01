@@ -152,6 +152,11 @@ function initGameHandler(io) {
       try {
         if (!rooms[roomId]) return
 
+        // Only allow ready clicks while the room is WAITING
+        if (rooms[roomId].status !== 'WAITING') {
+          return socket.emit('error', { message: 'The game is not in the waiting state.' })
+        }
+
         if (!rooms[roomId].readyPlayers) {
           rooms[roomId].readyPlayers = new Set()
         }
