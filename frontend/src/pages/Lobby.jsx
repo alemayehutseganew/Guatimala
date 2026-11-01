@@ -31,7 +31,9 @@ export default function Lobby() {
 
   const [walletBalance, setWalletBalance] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [helpOpen, setHelpOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     const userId = localStorage.getItem('dbUserId')
@@ -113,7 +115,10 @@ export default function Lobby() {
         >
           {i18n.language === 'en' ? 'AM' : 'EN'}
         </button>
-        <div className="flex items-center gap-2 bg-white text-[#0f2027] rounded-full px-4 py-1.5 font-extrabold shadow-lg shadow-yellow-500/20">
+        <div 
+  onClick={() => navigate('/wallet')}
+  className="flex items-center gap-2 bg-white text-[#0f2027] rounded-full px-4 py-1.5 font-extrabold shadow-lg shadow-yellow-500/20 cursor-pointer hover:scale-105 transition-transform"
+>
           <span className="text-green-600 text-lg">₿</span>
           <span>ETB {walletBalance.toFixed(2)}</span>
         </div>
