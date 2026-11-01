@@ -74,6 +74,18 @@ function initGameHandler(io) {
           user = { id: userId || socket.id, first_name: 'Player' }
         }
 
+        // CHECK IF GAME IS ALREADY IN PROGRESS
+        const dbRoom = await db('game_rooms').where({ id: roomId }).first()
+        if (dbRoom && (dbRoom.status === 'PLAYING' || dbRoom.status === 'COUNTDOWN')) {
+          const participant = await db('room_participants').where({ room_id: roomId, user_id: user.id }).first()
+          if (!participant) {
+            console.log(`[Game] User ${user.id} tried to join in-progress game ${roomId}`)
+            return socket.emit('game_in_progress', {
+              message: 'A game is currently in progress. Please wait for the next round.'
+            })
+          }
+        }
+
         if (userId) {
           const participant = await db('room_participants')
             .where({ room_id: roomId, user_id: user.id })

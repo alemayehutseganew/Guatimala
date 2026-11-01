@@ -37,6 +37,7 @@ const GameScreen = () => {
   const [isReady, setIsReady] = useState(false);
   const [countdown, setCountdown] = useState(null);
   const [gameStarted, setGameStarted] = useState(false);
+  const [gameInProgress, setGameInProgress] = useState(false);
   const [toast, setToast] = useState('');
   const [bingoMessage, setBingoMessage] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -74,6 +75,9 @@ const GameScreen = () => {
       setPlayersCount(data.players || data.playerCount || 0)
       setTickets(data.tickets || 0)
       setReadyPlayers(data.readyPlayers || 0)
+    })
+    socket.on('game_in_progress', (data) => {
+      setGameInProgress(true)
     })
     socket.on('countdown_tick', (data) => setCountdown(data.timeLeft));
     socket.on('my_cards', (data) => {
@@ -116,6 +120,7 @@ const GameScreen = () => {
       socket.off('new_number_called');
       socket.off('game_over');
       socket.off('bingo_result');
+      socket.off('game_in_progress');
     };
   }, [socket, roomId, userId, stake, soundEnabled]);
 
@@ -183,6 +188,26 @@ const GameScreen = () => {
     )
   }
 
+
+  if (gameInProgress) {
+    return (
+      <div className="min-h-screen bg-[#1e3a5f] flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-[#112A46] p-8 rounded-2xl shadow-2xl max-w-sm w-full border border-blue-800">
+          <div className="text-6xl mb-4">⏳</div>
+          <h2 className="text-2xl font-bold text-white mb-2">Game in Progress</h2>
+          <p className="text-gray-300 mb-8">
+            Please wait for the current game to finish. You will be able to join the next round shortly.
+          </p>
+          <button
+            onClick={() => window.location.href = '/'}
+            className="w-full bg-yellow-500 text-[#112A46] font-bold py-3 rounded-xl shadow-lg"
+          >
+            Back to Lobby
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#1e3a5f] text-white p-2 font-sans flex flex-col">
