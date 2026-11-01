@@ -83,42 +83,52 @@ function parseReceipt(text) {
   return { amount, status, payerName, creditedParty }
 }
 
+let Cheki = null
+try {
+  Cheki = require('cheki-verify').Cheki
+} catch (e) {
+  Cheki = null
+}
+
+const cheki = Cheki ? new Cheki() : null
+
 async function verifyTelebirrReceipt(reference) {
-  // Try tx-verify-ts package first (if installed)
-  try {
-    const { verifyTelebirr } = require('tx-verify-ts')
-    const proxyUrl = process.env.TELEBIRR_PROXY_URL
-    const options = {}
-    if (proxyUrl && proxyUrl.startsWith('socks')) {
-      options.proxies = proxyUrl
-    } else if (proxyUrl && proxyUrl.startsWith('http')) {
-      options.proxies = { http: proxyUrl, https: proxyUrl }
-    }
+  // Try cheki-verify if available
+  if (cheki) {
+    try {
+      const result = await cheki.verify('telebirr', reference, {
+        phoneNumber: process.env.TELEBIRR_RECEIVER_NUMBER || '0963184624'
+      })
 
-    const result = await verifyTelebirr(reference, options)
+      if (!result.verified) {
+        return {
+          success: false,
+          error: result.error || 'Receipt not found or invalid on Telebirr servers.'
+        }
+      }
 
-    if (!result || !result.success) {
-      return { success: false, error: (result && result.error) || 'Receipt not found on Telebirr servers.' }
-    }
+      const OUR_NAME = 'Alemayehu Tseganew'
+      if (result.receiverName && !result.receiverName.toLowerCase().includes(OUR_NAME.toLowerCase())) {
+        return {
+          success: false,
+          error: 'This receipt was not sent to our platform account.'
+        }
+      }
 
-    const OUR_NAME = 'Alemayehu Tseganew'
-    if (result.receiverName && !result.receiverName.toLowerCase().includes(OUR_NAME.toLowerCase().split(' ')[0])) {
-      return { success: false, error: 'This receipt was not sent to our platform account.' }
-    }
+      if (!result.amount || result.amount <= 0) {
+        return { success: false, error: 'Invalid amount on receipt.' }
+      }
 
-    if (!result.amount || result.amount <= 0) {
-      return { success: false, error: 'Invalid amount on receipt.' }
+      return {
+        success: true,
+        amount: result.amount,
+        payerName: result.senderName || 'Unknown',
+        receiverName: result.receiverName || OUR_NAME,
+        status: 'Completed'
+      }
+    } catch (err) {
+      console.error('Cheki verification error:', err.message)
     }
-
-    return {
-      success: true,
-      amount: result.amount,
-      payerName: result.payerName,
-      receiverName: result.receiverName,
-      status: 'Completed'
-    }
-  } catch (pkgErr) {
-    // Package not installed or failed; fall back to direct fetch
   }
 
   // Fallback: direct fetch
