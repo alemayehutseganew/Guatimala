@@ -84,6 +84,44 @@ function parseReceipt(text) {
 }
 
 async function verifyTelebirrReceipt(reference) {
+  // Try tx-verify-ts package first (if installed)
+  try {
+    const { verifyTelebirr } = require('tx-verify-ts')
+    const proxyUrl = process.env.TELEBIRR_PROXY_URL
+    const options = {}
+    if (proxyUrl && proxyUrl.startsWith('socks')) {
+      options.proxies = proxyUrl
+    } else if (proxyUrl && proxyUrl.startsWith('http')) {
+      options.proxies = { http: proxyUrl, https: proxyUrl }
+    }
+
+    const result = await verifyTelebirr(reference, options)
+
+    if (!result || !result.success) {
+      return { success: false, error: (result && result.error) || 'Receipt not found on Telebirr servers.' }
+    }
+
+    const OUR_NAME = 'Alemayehu Tseganew'
+    if (result.receiverName && !result.receiverName.toLowerCase().includes(OUR_NAME.toLowerCase().split(' ')[0])) {
+      return { success: false, error: 'This receipt was not sent to our platform account.' }
+    }
+
+    if (!result.amount || result.amount <= 0) {
+      return { success: false, error: 'Invalid amount on receipt.' }
+    }
+
+    return {
+      success: true,
+      amount: result.amount,
+      payerName: result.payerName,
+      receiverName: result.receiverName,
+      status: 'Completed'
+    }
+  } catch (pkgErr) {
+    // Package not installed or failed; fall back to direct fetch
+  }
+
+  // Fallback: direct fetch
   try {
     const url = `https://transactioninfo.ethiotelecom.et/receipt/${reference}`
     const response = await fetch(url, {
