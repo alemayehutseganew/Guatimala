@@ -42,7 +42,6 @@ const GameScreen = () => {
   const activeRoomId = sessionStorage.getItem('activeRoomId');
   const [spectatorNumbers, setSpectatorNumbers] = useState([]);
   const [spectatorBall, setSpectatorBall] = useState(null);
-  const [toast, setToast] = useState('');
   const [bingoMessage, setBingoMessage] = useState(null);
   const [gameResult, setGameResult] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -72,7 +71,6 @@ const GameScreen = () => {
     const handleJoin = () => {
       socket.emit('join_room', { roomId, userId, stake });
       socket.emit('get_my_cards', { roomId, userId });
-      console.log('Emitted join_room for:', roomId, userId);
     };
 
     if (socket.connected) {
@@ -82,19 +80,14 @@ const GameScreen = () => {
     }
 
     socket.on('room_update', (data) => {
-      setPlayersCount(data.players || data.playerCount || 0)
+      setPlayersCount(data.players || 0)
       setTickets(data.tickets || 0)
       setReadyPlayers(data.readyPlayers || 0)
     })
-    socket.on('game_in_progress', (data) => {
-      setGameInProgress(true)
-    })
+    socket.on('game_in_progress', () => setGameInProgress(true))
     socket.on('countdown_tick', (data) => setCountdown(data.timeLeft));
     socket.on('my_cards', (data) => {
-      console.log("Received cards:", data);
-      if (data.cards && data.cards.length > 0) {
-        setCardsData(data.cards);
-      }
+      if (data.cards && data.cards.length > 0) setCardsData(data.cards);
     });
 
     socket.on('game_started', () => {
@@ -107,7 +100,6 @@ const GameScreen = () => {
         setSpectatorBall({ number, letter });
         setSpectatorNumbers(prev => [...prev, number]);
       } else {
-        console.log("Received number from backend:", { number, letter })
         setCurrentBall({ number, letter });
         setCalledNumbers(prev => [...prev, number]);
         setCalledHistory(prev => [...prev.slice(-4), { number, letter }]);
@@ -119,22 +111,38 @@ const GameScreen = () => {
       }
     });
 
+    // CORRECTED GAME OVER LOGIC
     socket.on('game_over', (data) => {
-      const isWinner = data.winner && (data.winner.userId === userId || data.winner.socketId === socket.id);
+      const myId = String(userId);
+      // Check if my ID is in the winnerIds array
+      const isWinner = data.winnerIds?.some(id => String(id) === myId);
+
       if (isWinner) {
-        setToast("🎉 YOU WON! 🎉");
+        setGameResult({ 
+          type: 'win', 
+          title: '🎉 Congratulations!', 
+          message: `You won ETB ${Number(data.payout).toFixed(2)}!`,
+        });
+        if (soundEnabled && winSound) winSound.play().catch(() => {});
       } else {
-        setToast(`🎲 Game Over! The winner is ${data.winnerName || 'a player'}. Better luck next time!`);
-        if (soundEnabled) {
-          loseSound.currentTime = 0;
-          loseSound.play().catch(() => {});
-        };
+        setGameResult({ 
+          type: 'loss', 
+          title: '🎲 Game Over', 
+          message: `The winner is ${data.winnerName || 'a player'}. Better luck next time!`,
+        });
+        if (soundEnabled && loseSound) loseSound.play().catch(() => {});
       }
-      setTimeout(() => setToast(''), 5000);
+
       if (isSpectator) {
         setIsSpectator(false);
         sessionStorage.removeItem('activeRoomId');
       }
+
+      // Auto-redirect to lobby after 5 seconds
+      setTimeout(() => {
+        setGameResult(null);
+        navigate('/');
+      }, 5000);
     });
 
     socket.on('bingo_result', (data) => {
@@ -153,7 +161,7 @@ const GameScreen = () => {
       socket.off('bingo_result');
       socket.off('game_in_progress');
     };
-  }, [socket, roomId, userId, stake, soundEnabled]);
+  }, [socket, roomId, userId, stake, soundEnabled, isSpectator]);
 
   // Spectator: join active game and sync state
   useEffect(() => {
@@ -168,6 +176,7 @@ const GameScreen = () => {
       socket.off('spectator_sync');
     };
   }, [socket, activeRoomId, userId]);
+
   const speakNumber = (number, letter) => {
     if (!window.speechSynthesis) return
     window.speechSynthesis.cancel()
@@ -183,24 +192,13 @@ const GameScreen = () => {
     if (!calledNumbers.map(Number).includes(Number(num))) return;
     if (markedNumbers.map(Number).includes(Number(num))) return;
     setMarkedNumbers(prev => [...prev, Number(num)]);
-    console.log('Daubed:', num);
   };
 
   const handleBingoClick = () => {
     if (!gameStarted) return;
-    
     const cardId = cardsData[0]?.id || cardsData[0]?.cardId;
-    if (!cardId) {
-      console.error("No cardId found to claim!");
-      return;
-    }
-
-    socket.emit('claim_bingo', { 
-      roomId, 
-      userId: localStorage.getItem('dbUserId'), 
-      cardId, 
-      markedNumbers 
-    });
+    if (!cardId) return;
+    socket.emit('claim_bingo', { roomId, userId: localStorage.getItem('dbUserId'), cardId, markedNumbers });
   };
 
   if (isSpectator) {
@@ -232,18 +230,14 @@ const GameScreen = () => {
               if (num > 45) letter = 'G';
               if (num > 60) letter = 'O';
               return (
-                <div
-                  key={num}
-                  className={`text-center text-xs py-1 rounded ${isCalled ? getBallColor(letter).split(' ')[0] + ' text-white font-bold' : 'bg-[#1e3a5f] text-gray-500'}`}
-                >
+                <div key={num} className={`text-center text-xs py-1 rounded ${isCalled ? getBallColor(letter).split(' ')[0] + ' text-white font-bold' : 'bg-[#1e3a5f] text-gray-500'}`}>
                   {num}
                 </div>
               );
             })}
           </div>
           <p className="mt-6 text-center text-sm text-yellow-400 font-bold">
-            Waiting for the current game to finish...<br/>
-            Get ready to join the next round!
+            Waiting for the current game to finish...<br/>Get ready to join the next round!
           </p>
         </div>
       </div>
@@ -256,15 +250,8 @@ const GameScreen = () => {
         <div className="bg-[#112A46] p-8 rounded-2xl shadow-2xl max-w-sm w-full border border-blue-800">
           <div className="text-6xl mb-4">⏳</div>
           <h2 className="text-2xl font-bold text-white mb-2">Game in Progress</h2>
-          <p className="text-gray-300 mb-8">
-            Please wait for the current game to finish. You will be able to join the next round shortly.
-          </p>
-          <button
-            onClick={() => window.location.href = '/'}
-            className="w-full bg-yellow-500 text-[#112A46] font-bold py-3 rounded-xl shadow-lg"
-          >
-            Back to Lobby
-          </button>
+          <p className="text-gray-300 mb-8">Please wait for the current game to finish.</p>
+          <button onClick={() => window.location.href = '/'} className="w-full bg-yellow-500 text-[#112A46] font-bold py-3 rounded-xl shadow-lg">Back to Lobby</button>
         </div>
       </div>
     );
@@ -280,22 +267,13 @@ const GameScreen = () => {
             <p className="text-xl mb-2">Tickets Sold: <span className="font-bold text-yellow-400">{tickets}</span></p>
             <p className="text-xl mb-6">Ready Players: <span className="font-bold text-green-400">{readyPlayers}</span></p>
             <button
-              onClick={() => {
-                socket.emit('player_ready', { roomId, userId });
-                setIsReady(true);
-              }}
+              onClick={() => { socket.emit('player_ready', { roomId, userId }); setIsReady(true); }}
               disabled={isReady}
               className="w-full bg-yellow-500 hover:bg-yellow-400 text-[#112A46] font-extrabold text-xl py-4 rounded-xl shadow-lg mb-4 transition-colors disabled:opacity-50"
             >
               I'm Ready
             </button>
-            <button
-              onClick={() => {
-              socket.emit('leave_room', { roomId, userId });
-              navigate('/lobby');
-            }}
-              className="w-full bg-red-600 hover:bg-red-500 text-white font-bold text-lg py-3 rounded-xl transition-colors"
-            >
+            <button onClick={() => { socket.emit('leave_room', { roomId, userId }); navigate('/'); }} className="w-full bg-red-600 hover:bg-red-500 text-white font-bold text-lg py-3 rounded-xl transition-colors">
               Leave Room
             </button>
           </div>
@@ -304,163 +282,114 @@ const GameScreen = () => {
         <>
           {countdown !== null && (
             <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50">
-               <div className="text-8xl font-black text-green-500 font-mono animate-pulse">
-                 {countdown}
-               </div>
+               <div className="text-8xl font-black text-green-500 font-mono animate-pulse">{countdown}</div>
             </div>
           )}
-      <div className="flex flex-wrap items-center justify-between gap-1 mb-4 bg-[#112A46] p-2 rounded-md shadow-md">
-        <div className="flex gap-2 text-xs font-bold">
-          <div className="bg-[#2A4B6E] px-3 py-1 rounded">Win: 0</div>
-          <div className="bg-[#2A4B6E] px-3 py-1 rounded">Stake: {stake}</div>
-          <div className="bg-[#2A4B6E] px-3 py-1 rounded">Call: {calledNumbers.length}</div>
-          <div className="bg-[#2A4B6E] px-3 py-1 rounded">Players: {playersCount}</div>
-        </div>
-        <div className="flex gap-1 text-xs">
-          {/* AM Button */}
-          <button 
-            onClick={() => i18n.changeLanguage(i18n.language === 'en' ? 'am' : 'en')}
-            className="bg-[#2A4B6E] px-3 py-1 rounded hover:bg-[#3A5B7E]"
-          >
-            {i18n.language === 'en' ? 'AM' : 'EN'}
-          </button>
-          
-          {/* SND Button */}
-          <button 
-            onClick={() => {
-              if (soundEnabled) window.speechSynthesis?.cancel()
-              setSoundEnabled(!soundEnabled)
-            }}
-            className={`px-3 py-1 rounded ${soundEnabled ? 'bg-green-600' : 'bg-[#2A4B6E]'}`}
-          >
-            {soundEnabled ? 'SND' : 'MUTE'}
-          </button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex flex-row gap-2 flex-1">
-        
-        {/* LEFT COLUMN: Tracker & Ball */}
-        <div className="w-1/2 flex flex-col gap-4">
-          
-          {/* Large Ball Area */}
-          <div className="w-full h-40 bg-white border-4 border-red-600 rounded-lg flex items-center justify-center shadow-inner">
-            {countdown !== null ? (
-              <span className="text-7xl font-bold text-[#112A46]">{countdown}</span>
-            ) : currentBall ? (
-              <div className={`w-32 h-32 rounded-full border-8 flex flex-col items-center justify-center shadow-xl ${getBallColor(currentBall.letter)}`}>
-                <span className="text-2xl font-bold text-white mt-1 ibm-plex-mono-bold-italic">
-                  {currentBall.letter}
-                </span>
-                <span className="text-6xl font-bold text-white">{currentBall.number}</span>
-              </div>
-            ) : (
-              <span className="text-gray-400 font-bold">Waiting for game...</span>
-            )}
-          </div>
-
-          {/* Previous Balls */}
-          <div className="flex gap-2 justify-center h-10">
-            {calledHistory.map((ball, i) => (
-              <div key={i} className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-sm ${getBallColor(ball.letter)}`}>
-                {ball.number}
-              </div>
-            ))}
-          </div>
-
-          {/* 1-75 Tracker */}
-          <div className="bg-[#4a5568] p-2 rounded-lg shadow-md">
-            <div className="grid grid-cols-5 gap-1">
-              {['B', 'I', 'N', 'G', 'O'].map((letter) => (
-                <div key={letter} className={`text-center text-xl py-1 rounded text-white ibm-plex-mono-bold-italic ${getBallColor(letter).split(' ')[0]}`}>
-                  {letter}
-                </div>
-              ))}
-              {Array.from({ length: 15 }, (_, rowIndex) => (
-                <Fragment key={rowIndex}>
-                  {[0, 1, 2, 3, 4].map((colIndex) => {
-                    const num = rowIndex + 1 + (colIndex * 15);
-                    const isCalled = calledNumbers.includes(num);
-                    return (
-                      <div 
-                        key={num} 
-                        className={`text-center text-sm py-1.5 rounded ${isCalled ? 'bg-red-500 text-white font-bold' : 'bg-[#1e3a5f] text-white'}`}
-                      >
-                        {num}
-                      </div>
-                    );
-                  })}
-                </Fragment>
-              ))}
+          <div className="flex flex-wrap items-center justify-between gap-1 mb-4 bg-[#112A46] p-2 rounded-md shadow-md">
+            <div className="flex gap-2 text-xs font-bold">
+              <div className="bg-[#2A4B6E] px-3 py-1 rounded">Win: 0</div>
+              <div className="bg-[#2A4B6E] px-3 py-1 rounded">Stake: {stake}</div>
+              <div className="bg-[#2A4B6E] px-3 py-1 rounded">Call: {calledNumbers.length}</div>
+              <div className="bg-[#2A4B6E] px-3 py-1 rounded">Players: {playersCount}</div>
+            </div>
+            <div className="flex gap-1 text-xs">
+              <button onClick={() => i18n.changeLanguage(i18n.language === 'en' ? 'am' : 'en')} className="bg-[#2A4B6E] px-3 py-1 rounded hover:bg-[#3A5B7E]">
+                {i18n.language === 'en' ? 'AM' : 'EN'}
+              </button>
+              <button onClick={() => { if (soundEnabled) window.speechSynthesis?.cancel(); setSoundEnabled(!soundEnabled); }} className={`px-3 py-1 rounded ${soundEnabled ? 'bg-green-600' : 'bg-[#2A4B6E]'}`}>
+                {soundEnabled ? 'SND' : 'MUTE'}
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* RIGHT COLUMN: Player Card */}
-        <div className="w-1/2 flex flex-col justify-center items-center gap-4 py-10">
-          <div className="w-full flex flex-col items-center gap-4">
-
-          {cardsData && cardsData.length > 0 ? (
-            <div className="bg-[#4a5568] p-3 rounded-xl shadow-lg">
-              <div className="text-center font-bold text-lg mb-2 text-gray-200">
-                Card No. {cardsData[0]?.id || '?'}
-              </div>
-              
-              <div className="grid grid-cols-5 gap-1 mb-2">
-                {['B', 'I', 'N', 'G', 'O'].map((letter) => (
-                  <div key={letter} className={`text-center text-xl py-1 rounded text-white ibm-plex-mono-bold-italic ${getBallColor(letter).split(' ')[0]}`}>
-                    {letter}
+          <div className="flex flex-row gap-2 flex-1">
+            <div className="w-1/2 flex flex-col gap-4">
+              <div className="w-full h-40 bg-white border-4 border-red-600 rounded-lg flex items-center justify-center shadow-inner">
+                {countdown !== null ? (
+                  <span className="text-7xl font-bold text-[#112A46]">{countdown}</span>
+                ) : currentBall ? (
+                  <div className={`w-32 h-32 rounded-full border-8 flex flex-col items-center justify-center shadow-xl ${getBallColor(currentBall.letter)}`}>
+                    <span className="text-2xl font-bold text-white mt-1 ibm-plex-mono-bold-italic">{currentBall.letter}</span>
+                    <span className="text-6xl font-bold text-white">{currentBall.number}</span>
                   </div>
+                ) : (
+                  <span className="text-gray-400 font-bold">Waiting for game...</span>
+                )}
+              </div>
+
+              <div className="flex gap-2 justify-center h-10">
+                {calledHistory.map((ball, i) => (
+                  <div key={i} className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-sm ${getBallColor(ball.letter)}`}>{ball.number}</div>
                 ))}
               </div>
 
-              <div className="grid grid-cols-5 gap-1">
-                {cardsData[0]?.matrix?.flat().map((num, index) => {
-                  const isFree = index === 12 || num === 'FREE';
-                  const isMarked = isFree || markedNumbers.includes(num);
-                  
-                  return (
-                    <button
-                      key={index}
-                      onClick={() => !isFree && handleDaub(num)}
-                      className={`aspect-square flex items-center justify-center font-bold text-lg rounded-md shadow-sm transition-transform
-                        ${isFree ? 'bg-blue-600 text-white border-b-0 transform translate-y-1' : 
-                          isMarked ? 'bg-green-500 text-white border-b-0 transform translate-y-1' : 
-                          'bg-white text-black border-b-4 border-gray-300 hover:bg-gray-100'}`}
-                    >
-                      {isFree ? 'F' : num}
-                    </button>
-                  );
-                })}
+              <div className="bg-[#4a5568] p-2 rounded-lg shadow-md">
+                <div className="grid grid-cols-5 gap-1">
+                  {['B', 'I', 'N', 'G', 'O'].map((letter) => (
+                    <div key={letter} className={`text-center text-xl py-1 rounded text-white ibm-plex-mono-bold-italic ${getBallColor(letter).split(' ')[0]}`}>{letter}</div>
+                  ))}
+                  {Array.from({ length: 15 }, (_, rowIndex) => (
+                    <Fragment key={rowIndex}>
+                      {[0, 1, 2, 3, 4].map((colIndex) => {
+                        const num = rowIndex + 1 + (colIndex * 15);
+                        const isCalled = calledNumbers.includes(num);
+                        return (
+                          <div key={num} className={`text-center text-sm py-1.5 rounded ${isCalled ? 'bg-red-500 text-white font-bold' : 'bg-[#1e3a5f] text-white'}`}>{num}</div>
+                        );
+                      })}
+                    </Fragment>
+                  ))}
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="text-white text-center mt-10">Loading Card...</div>
+
+            <div className="w-1/2 flex flex-col justify-center items-center gap-4 py-10">
+              <div className="w-full flex flex-col items-center gap-4">
+                {cardsData && cardsData.length > 0 ? (
+                  <div className="bg-[#4a5568] p-3 rounded-xl shadow-lg">
+                    <div className="text-center font-bold text-lg mb-2 text-gray-200">Card No. {cardsData[0]?.id || '?'}</div>
+                    <div className="grid grid-cols-5 gap-1 mb-2">
+                      {['B', 'I', 'N', 'G', 'O'].map((letter) => (
+                        <div key={letter} className={`text-center text-xl py-1 rounded text-white ibm-plex-mono-bold-italic ${getBallColor(letter).split(' ')[0]}`}>{letter}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-5 gap-1">
+                      {cardsData[0]?.matrix?.flat().map((num, index) => {
+                        const isFree = index === 12 || num === 'FREE';
+                        const isMarked = isFree || markedNumbers.includes(num);
+                        return (
+                          <button key={index} onClick={() => !isFree && handleDaub(num)} className={`aspect-square flex items-center justify-center font-bold text-lg rounded-md shadow-sm transition-transform ${isFree ? 'bg-blue-600 text-white border-b-0 transform translate-y-1' : isMarked ? 'bg-green-500 text-white border-b-0 transform translate-y-1' : 'bg-white text-black border-b-4 border-gray-300 hover:bg-gray-100'}`}>
+                            {isFree ? 'F' : num}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-white text-center mt-10">Loading Card...</div>
+                )}
+                <button onClick={handleBingoClick} className="w-full max-w-sm bg-yellow-500 text-[#112A46] font-extrabold text-2xl py-4 rounded-xl shadow-lg">BINGO</button>
+              </div>
+            </div>
+          </div>
+          
+          {bingoMessage && (
+            <div className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 px-6 py-4 rounded-xl shadow-2xl font-bold text-center z-50 ${bingoMessage.success ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+              {bingoMessage.message}
+            </div>
           )}
 
-          <button 
-            onClick={handleBingoClick}
-            className="w-full max-w-sm bg-yellow-500 text-[#112A46] font-extrabold text-2xl py-4 rounded-xl shadow-lg"
-          >
-            BINGO
-          </button>
-          </div>
-
-        </div>
-      </div>
-      
-      {bingoMessage && (
-        <div className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 px-6 py-4 rounded-xl shadow-2xl font-bold text-center z-50 ${bingoMessage.success ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
-          {bingoMessage.message}
-        </div>
-      )}
-
-      {toast && (
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-black/80 text-white text-3xl font-bold p-8 rounded-xl z-50">
-          {toast}
-        </div>
-      )}
+          {gameResult && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+              <div className={`bg-[#112A46] rounded-2xl p-8 max-w-sm w-full text-center border-4 ${gameResult.type === 'win' ? 'border-yellow-500' : 'border-red-500'}`}>
+                <h2 className={`text-4xl font-bold mb-4 ${gameResult.type === 'win' ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {gameResult.title}
+                </h2>
+                <p className="text-white text-xl mb-8">{gameResult.message}</p>
+                <button onClick={() => { setGameResult(null); navigate('/'); }} className="w-full bg-white text-[#112A46] font-bold py-3 rounded-xl">Back to Lobby</button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
