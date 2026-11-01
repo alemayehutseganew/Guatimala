@@ -53,16 +53,16 @@ router.get('/stats', adminAuth, async (req, res) => {
     const userCountResult = await db('users').count('* as count').first()
     const totalUsers = parseInt(userCountResult.count, 10)
 
-    const activeGamesResult = await db('rooms')
+    const activeGamesResult = await db('game_rooms')
       .whereIn('status', ['WAITING', 'COUNTDOWN', 'PLAYING'])
       .count('* as count')
       .first()
     const activeGames = parseInt(activeGamesResult.count, 10)
 
     // Total Wagered: sum of stakes across all room participants (each player's entry)
-    const wageredResult = await db('rooms')
-      .join('room_participants', 'rooms.id', 'room_participants.room_id')
-      .sum('rooms.stake_amount as total')
+    const wageredResult = await db('game_rooms')
+      .join('room_participants', 'game_rooms.id', 'room_participants.room_id')
+      .sum('game_rooms.stake_amount as total')
       .first()
     const totalWagered = parseFloat(wageredResult.total || 0).toFixed(2)
 
@@ -137,17 +137,17 @@ router.post('/users/:id/adjust-balance', adminAuth, async (req, res) => {
 
 router.get('/games', adminAuth, async (req, res) => {
   try {
-    const games = await db('rooms')
+    const games = await db('game_rooms')
       .select(
-        'rooms.id',
-        'rooms.stake_amount',
-        'rooms.status',
-        'rooms.created_at',
+        'game_rooms.id',
+        'game_rooms.stake_amount',
+        'game_rooms.status',
+        'game_rooms.created_at',
         db.raw('COUNT(room_participants.id) as total_players')
       )
-      .leftJoin('room_participants', 'rooms.id', 'room_participants.room_id')
-      .groupBy('rooms.id')
-      .orderBy('rooms.created_at', 'desc')
+      .leftJoin('room_participants', 'game_rooms.id', 'room_participants.room_id')
+      .groupBy('game_rooms.id')
+      .orderBy('game_rooms.created_at', 'desc')
       .limit(100)
 
     const gameIds = games.map(g => g.id)
