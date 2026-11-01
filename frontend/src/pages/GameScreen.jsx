@@ -46,6 +46,11 @@ const GameScreen = () => {
   const [bingoMessage, setBingoMessage] = useState(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
+  // Audio cues
+  const numberCallSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2181/2181-preview.mp3');
+  const winSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3');
+  const loseSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2016/2016-preview.mp3');
+
   // Fetch Cards from Backend
   useEffect(() => {
     if (!userId) return;
@@ -105,7 +110,11 @@ const GameScreen = () => {
         setCurrentBall({ number, letter });
         setCalledNumbers(prev => [...prev, number]);
         setCalledHistory(prev => [...prev.slice(-4), { number, letter }]);
-        if (soundEnabled) speakNumber(number, letter);
+        if (soundEnabled) {
+          numberCallSound.currentTime = 0;
+          numberCallSound.play().catch(() => {});
+          speakNumber(number, letter);
+        }
       }
     });
 
@@ -115,6 +124,10 @@ const GameScreen = () => {
         setToast("🎉 YOU WON! 🎉");
       } else {
         setToast(`🎲 Game Over! The winner is ${data.winnerName || 'a player'}. Better luck next time!`);
+        if (soundEnabled) {
+          loseSound.currentTime = 0;
+          loseSound.play().catch(() => {});
+        };
       }
       setTimeout(() => setToast(''), 5000);
       if (isSpectator) {
