@@ -31,49 +31,13 @@ function parseTelebirrSMS(smsText) {
 }
 
 async function verifyTelebirrReceipt(reference) {
-  try {
-    const response = await fetch('https://cheki.et/api/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        bank: 'telebirr',
-        reference: reference
-      })
-    })
-
-    const data = await response.json()
-
-    if (!data.success || !data.verified) {
-      return {
-        success: false,
-        error: data.error || data.message || 'Receipt not found or not verified by Telebirr.'
-      }
-    }
-
-    const amount = parseFloat(data.amount)
-    if (isNaN(amount) || amount <= 0) {
-      return { success: false, error: 'Invalid amount on receipt.' }
-    }
-
-    const OUR_NAME = 'ALEMAYEHU TSEGANEW'
-    if (data.receiverName && !data.receiverName.toUpperCase().includes(OUR_NAME)) {
-      return {
-        success: false,
-        error: 'This receipt was not sent to our platform account.'
-      }
-    }
-
-    return {
-      success: true,
-      amount: amount,
-      payerName: data.senderName || 'Unknown',
-      receiverName: data.receiverName || OUR_NAME,
-      transactionId: data.reference,
-      status: 'Completed'
-    }
-  } catch (err) {
-    console.error('cheki.et verification error:', err.message)
-    return { success: false, error: 'Unable to reach verification service. Please try again later.' }
+  // TODO: Automated verification pending.
+  // The hosted cheki.et API cannot reach Telebirr due to Ethiopian geo-blocking.
+  // Will implement self-hosted verification on Ethiopian IP or official merchant API.
+  console.log('[verifyTelebirrReceipt] Called with reference:', reference)
+  return {
+    success: false,
+    error: 'Payment verification is currently under maintenance. Please contact support.'
   }
 }
 
