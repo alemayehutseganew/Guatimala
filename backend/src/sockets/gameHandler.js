@@ -330,9 +330,14 @@ function initGameHandler(io) {
         const playerCount = Object.keys(room.players).length;
         
         let winnerName = 'A Player';
-        const totalPool = stake * playerCount;
+        const winnerCount = room.claimedBy.length;
+        const totalPlayers = Object.keys(room.players).length;
+        const totalPool = room.stake * totalPlayers;
         const platformFee = totalPool * 0.15;
-        const payoutPerWinner = Math.floor((totalPool - platformFee) / winnerCount * 100) / 100;
+        const netWinnerPool = totalPool - platformFee;
+        const payoutPerWinner = Math.floor((netWinnerPool / winnerCount) * 100) / 100;
+
+        console.log(`[PAYOUT] Pool: ${totalPool}, Fee: ${platformFee}, Payout: ${payoutPerWinner}`);
 
         // Process payouts in DB
         await db.transaction(async (trx) => {
@@ -346,9 +351,9 @@ function initGameHandler(io) {
             await trx('financial_ledger').insert({
               user_id: winnerUser.id,
               amount: payoutPerWinner,
-              type: 'WINNING_PAYOUT',
-              
+              type: 'WINNING_PAYOUT'
             });
+            console.log(`[PAYOUT] Credited ${payoutPerWinner} to winner ${winnerUser.id}`);
           }
         });
 

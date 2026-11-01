@@ -28,7 +28,6 @@ router.post('/join', async (req, res) => {
 
     console.log('[join] Checking balance. Current:', user.wallet_balance)
 
-    const result = await db.transaction(async (trx) => {
       console.log('[join] Transaction started')
 
       const lockedUser = await trx('users').where({ id: user.id }).forUpdate().first()
@@ -41,6 +40,11 @@ router.post('/join', async (req, res) => {
         throw error
       }
 
+      // 1. DEDUCT THE STAKE
+      await trx('users').where({ id: user.id }).decrement('wallet_balance', entryFee)
+      console.log(`[JOIN] Deducted ${entryFee} from user ${user.id}. New balance should be ${Number(lockedUser.wallet_balance) - entryFee}`)
+
+      // 2. FIND OR CREATE ROOM
       let room = await trx('game_rooms').where({ stake_amount: entryFee, status: 'WAITING' }).forUpdate().first()
       console.log('[join] Room found/created:', room ? room.id : 'Creating new room')
 
@@ -54,37 +58,23 @@ router.post('/join', async (req, res) => {
         console.log('[join] New room created:', room.id)
       }
 
-      // Check if there is a currently PLAYING room for this stake
-      const activeRoom = await trx('game_rooms').where({ stake_amount: entryFee, status: 'PLAYING' }).first()
-
+      // 3. CHECK IF ALREADY IN ROOM (Prevent double deduction)
       const existing = await trx('room_participants').where({ room_id: room.id, user_id: user.id }).first()
-      if (existing) {
-        console.log('[join] User already in room')
-        return { room, activeRoomId: activeRoom ? activeRoom.id : null, alreadyJoined: true }
+
+      if (!existing) {
+        // 4. LOG TO LEDGER
+        await trx('financial_ledger').insert({
+          user_id: user.id,
+          amount: -entryFee,
+          type: 'ENTRY_FEE'
+        })
+        console.log(`[JOIN] Inserted participant and ledger for user ${user.id}`)
+      } else {
+        console.log(`[JOIN] User ${user.id} was already in room. Deduction skipped.`)
       }
 
-      console.log('[join] Deducting balance...')
-      await trx('users').where({ id: user.id }).decrement('wallet_balance', entryFee)
-
-      console.log('[join] Inserting participant...')
-      await trx('room_participants').insert({
-        room_id: room.id,
-        user_id: user.id,
-        is_winner: false
-      })
-
-      console.log('[join] Inserting ledger...')
-      await trx('financial_ledger').insert({
-        user_id: user.id,
-        amount: -entryFee,
-        type: 'ENTRY_FEE',
-        reference: `ROOM_${room.id}`,
-        created_at: new Date(),
-      })
-
       console.log('[join] Transaction successful')
-      return { room, activeRoomId: activeRoom ? activeRoom.id : null, alreadyJoined: false }
-    })
+      console.log('[join] Transaction successful')
 
     console.log('[join] Sending response:', result.room.id)
     if (result.alreadyJoined) {
