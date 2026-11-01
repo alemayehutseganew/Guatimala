@@ -78,7 +78,6 @@ router.get('/:roomId/cards', (req, res) => {
     cards.push({
       id: i,
       card_number: i,
-module.exports = router
       taken: false,
       matrix: generateSingleCard(),
     })
@@ -178,5 +177,4 @@ router.get('/:id/my-cards', async (req, res) => {
   }
 })
 
-module.exports = router
 module.exports = router
