@@ -120,37 +120,82 @@ function initGameHandler(io) {
     })
     socket.on('player_ready', async ({ roomId, userId }) => {
       try {
-        const room = rooms[roomId]
-        if (!room || room.status !== 'WAITING') return
+        if (!rooms[roomId]) return
 
-        let uid = userId
-        if (uid) {
-          const u = await db('users').where({ id: uid }).first()
-          if (!u) {
-            const u2 = await db('users').where({ telegram_id: uid }).first()
-            if (u2) uid = u2.id
-          }
+        if (!rooms[roomId].readyPlayers) {
+          rooms[roomId].readyPlayers = new Set()
         }
-        room.readyPlayers.add(uid || socket.id)
+
+        rooms[roomId].readyPlayers.add(userId)
+
+        const readyCount = rooms[roomId].readyPlayers.size
+        const playerCount = Object.keys(rooms[roomId].players).length
 
         const ticketRow = await db('room_card_selections').where({ room_id: roomId }).count('* as c').first()
         const ticketCount = Number(ticketRow ? ticketRow.c : 0)
-        const playerCount = Object.keys(room.players).length
+
+        console.log(`[Game] Player ${userId} is ready. ${readyCount}/${playerCount} ready.`)
 
         io.to(roomId).emit('room_update', {
           players: playerCount,
           tickets: ticketCount,
-          readyPlayers: room.readyPlayers.size,
-          stake: room.stake
+          readyPlayers: readyCount,
+          stake: rooms[roomId].stake
         })
 
-        console.log(`[Game] Ready players in ${roomId}: ${room.readyPlayers.size}`)
+        if (readyCount >= 2 && rooms[roomId].status === 'WAITING') {
+          console.log(`[Game] Starting countdown for room ${roomId}`)
+          rooms[roomId].status = 'COUNTDOWN'
 
-        if (room.readyPlayers.size >= 2) {
-          startCountdown(io, roomId)
+          let timeLeft = 5
+          io.to(roomId).emit('countdown_tick', { timeLeft })
+
+          const countdownInterval = setInterval(() => {
+            timeLeft -= 1
+            io.to(roomId).emit('countdown_tick', { timeLeft })
+
+            if (timeLeft <= 0) {
+              clearInterval(countdownInterval)
+              rooms[roomId].status = 'PLAYING'
+              io.to(roomId).emit('game_started')
+              console.log(`[Game] Game started for ${roomId}`)
+
+              if (rooms[roomId].intervalId) clearInterval(rooms[roomId].intervalId)
+
+              rooms[roomId].intervalId = setInterval(() => {
+                if (rooms[roomId].status !== 'PLAYING') {
+                  clearInterval(rooms[roomId].intervalId)
+                  rooms[roomId].intervalId = null
+                  return
+                }
+
+                let number
+                do {
+                  number = Math.floor(Math.random() * 75) + 1
+                } while (rooms[roomId].calledNumbers.has(number))
+
+                rooms[roomId].calledNumbers.add(number)
+
+                let letter = 'B'
+                if (number > 15) letter = 'I'
+                if (number > 30) letter = 'N'
+                if (number > 45) letter = 'G'
+                if (number > 60) letter = 'O'
+
+                console.log(`[Game] Calling number: ${letter} ${number}`)
+                io.to(roomId).emit('new_number_called', { number, letter })
+
+                if (rooms[roomId].calledNumbers.size === 75) {
+                  clearInterval(rooms[roomId].intervalId)
+                  rooms[roomId].intervalId = null
+                  rooms[roomId].status = 'ENDED'
+                }
+              }, 3000)
+            }
+          }, 1000)
         }
       } catch (err) {
-        console.error('[Game] player_ready error:', err)
+        console.error('[Game] Error in player_ready:', err)
       }
     })
 
