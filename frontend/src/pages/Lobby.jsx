@@ -93,94 +93,89 @@ export default function Lobby() {
 
 
   return (
-    <div className="min-h-screen bg-[#112A46] text-white flex flex-col items-center px-4 py-4">
-      {menuOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          <div className="w-64 bg-[#0d2238] h-full p-6 shadow-2xl">
-            <button onClick={() => setMenuOpen(false)} className="text-white text-2xl mb-6">✕</button>
-            <ul className="space-y-4">
-              <li><button onClick={() => navigate('/history')} className="text-white w-full text-left">Game History</button></li>
-              <li><button onClick={() => navigate('/leaderboard')} className="text-white w-full text-left">Leaderboard</button></li>
-              <li><button onClick={() => navigate('/settings')} className="text-white w-full text-left">Settings</button></li>
-              <li><button onClick={handleLogout} className="text-red-400 w-full text-left">Logout</button></li>
-            </ul>
-          </div>
-          <div className="flex-1 bg-black/50" onClick={() => setMenuOpen(false)}></div>
-        </div>
-      )}
+  <div className="min-h-screen bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364] text-white font-sans flex flex-col relative overflow-hidden">
+    
+    {/* Decorative background glow */}
+    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-yellow-500/20 rounded-full blur-[120px] pointer-events-none"></div>
 
-      {helpOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="bg-[#112A46] text-white rounded-xl p-6 w-full max-w-md shadow-2xl relative">
-            <button onClick={() => setHelpOpen(false)} className="absolute top-3 right-3 text-white text-xl">✕</button>
-            <pre className="whitespace-pre-wrap text-sm leading-relaxed">{AMHARIC_INSTRUCTIONS}</pre>
-          </div>
-        </div>
-      )}
-
-      <div className="w-full max-w-md flex items-center justify-between mb-4">
-        <button onClick={() => setMenuOpen(true)} className="text-white">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
+    {/* Top Navigation Bar */}
+    <div className="relative z-10 flex items-center justify-between px-4 py-4">
+      <button className="p-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 hover:bg-white/20 transition-all">
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={toggleLanguage}
+          className="px-3 py-1.5 bg-white/10 backdrop-blur-md text-white text-xs font-bold rounded-full border border-white/10 hover:bg-white/20 transition-all"
+        >
+          {i18n.language === 'en' ? 'AM' : 'EN'}
         </button>
-        <label className="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" className="sr-only peer" />
-          <div className="w-12 h-6 bg-gray-300 rounded-full peer peer-checked:bg-green-500 transition-colors"></div>
-          <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-6"></div>
-        </label>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setHelpOpen(true)}
-            className="w-10 h-10 rounded-full bg-yellow-400 flex items-center justify-center text-[#112A46] font-bold text-lg"
-          >
-            ?
-          </button>
-          <button
-            onClick={toggleLanguage}
-            className="bg-white text-[#112A46] text-xs font-bold px-3 py-1.5 rounded-full"
-          >
-            {i18n.language === 'en' ? 'AM' : 'EN'}
-          </button>
+        <div className="flex items-center gap-2 bg-white text-[#0f2027] rounded-full px-4 py-1.5 font-extrabold shadow-lg shadow-yellow-500/20">
+          <span className="text-green-600 text-lg">₿</span>
+          <span>ETB {walletBalance.toFixed(2)}</span>
+        </div>
+      </div>
+    </div>
+
+    {/* Header */}
+    <div className="relative z-10 text-center mt-6 mb-10 px-4">
+      <h1 className="text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 drop-shadow-lg">
+        GOBINGO
+      </h1>
+      <p className="text-gray-400 font-medium mt-2 tracking-widest uppercase text-xs">
+        Play • Win • Repeat
+      </p>
+    </div>
+
+    {/* Main Content */}
+    <div className="relative z-10 flex-1 px-4 pb-10">
+      <h2 className="text-center text-xl font-bold text-white mb-6">
+        {t('chooseStake')}
+      </h2>
+
+      <div className="flex flex-col gap-4 max-w-md mx-auto">
+        {stakes.map((stake, idx) => (
           <div 
-            onClick={() => navigate('/wallet')} 
-            className="flex items-center gap-2 bg-white text-[#112A46] rounded-full px-4 py-2 font-semibold cursor-pointer"
+            key={stake} 
+            className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center justify-between shadow-2xl hover:bg-white/10 transition-all group overflow-hidden"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7zm0 5h18" />
-            </svg>
-            <span>ETB {walletBalance.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
+            {/* Bonus Ribbon (Only for first two) */}
+            {idx < 2 && (
+              <div className="absolute top-0 right-0 bg-gradient-to-r from-yellow-400 to-orange-500 text-[#0f2027] text-[10px] font-black px-4 py-1 rounded-bl-xl shadow-lg">
+                BONUS
+              </div>
+            )}
 
-      <div className="w-full max-w-md flex items-center justify-between mb-6">
-        <div className="text-xl font-bold text-yellow-400 tracking-wide">
-          GOBINGO
-        </div>
-      </div>
-
-      <h1 className="w-full max-w-md text-2xl font-bold mb-4">{t('chooseStake')}</h1>
-
-      <div className="w-full max-w-md bg-[#0d2238] rounded-lg overflow-hidden">
-        <div className="grid grid-cols-2 text-center text-sm font-semibold bg-[#0a1a2e] py-2">
-          <div>{t('stake')}</div>
-          <div>{t('join')}</div>
-        </div>
-        {stakes.map((stake) => (
-          <div key={stake} className="grid grid-cols-2 text-center items-center py-3 border-b border-[#1e3a5f] last:border-b-0">
-            <div className="text-green-400 font-bold text-lg">{stake}</div>
-            <div className="flex justify-center">
-              <button
-                onClick={() => handleJoin(stake)}
-                className="bg-white text-[#112A46] text-xs font-bold px-4 py-1.5 rounded shadow"
-              >
-                {t('join')} &gt;&gt;
-              </button>
+            {/* Left side: Stake Value */}
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Stake</span>
+              <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
+                {stake} <span className="text-sm">ETB</span>
+              </span>
             </div>
+
+            {/* Right side: Join Button */}
+            <button
+              onClick={() => handleJoin(stake)}
+              className="bg-gradient-to-r from-yellow-400 to-orange-500 text-[#0f2027] font-black text-lg px-6 py-3 rounded-xl shadow-lg shadow-orange-500/30 group-hover:scale-105 active:scale-95 transition-all"
+            >
+              JOIN
+            </button>
           </div>
         ))}
       </div>
     </div>
-  )
+
+    {/* Bottom Decorative Element */}
+    <div className="relative z-10 text-center pb-6">
+      <p className="text-xs text-gray-500">Powered by Telebirr • Secure Payments</p>
+    </div>
+  </div>
+
+
+
+);
 }
