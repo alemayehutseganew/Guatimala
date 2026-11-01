@@ -264,101 +264,117 @@ function initGameHandler(io) {
         console.error('[Game] leave_room error:', err)
       }
     })
-    socket.on('claim_bingo', async ({ roomId, userId, cardId, markedNumbers }) => {
+    socket.on('claim_bingo', async ({ roomId, userId, cardId }) => {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  console.log(`[Claim] Received claim from user ${userId} for card ${cardId}. Status: ${room.status}`);
+
+  // 1. Prevent claiming if game is not playing or is already ending
+  if (room.status !== 'PLAYING') {
+    return socket.emit('bingo_result', { success: false, message: 'The game is not currently active.' });
+  }
+
+  // 2. Prevent the same user from claiming twice
+  if (!room.claimedBy) room.claimedBy = [];
+  if (!Array.isArray(room.claimedBy)) room.claimedBy = [];
+  if (room.claimedBy.includes(userId)) {
+    return socket.emit('bingo_result', { success: false, message: 'You have already claimed Bingo!' });
+  }
+
+  try {
+    // 3. Fetch the user's card from the database
+    let user = await db('users').where({ id: userId }).first();
+    if (!user) user = await db('users').where({ telegram_id: userId }).first();
+    const selection = await db('room_card_selections').where({ room_id: roomId, user_id: user.id, card_id: cardId }).first();
+    
+    if (!selection) {
+      return socket.emit('bingo_result', { success: false, message: 'Card not found.' });
+    }
+
+    const cardMatrix = typeof selection.card === 'string' ? JSON.parse(selection.card) : selection.card;
+
+    // 4. SECURITY FIX: Validate against SERVER called numbers, NOT the client's markedNumbers
+    const calledSet = new Set(Array.from(room.calledNumbers));
+    const result = validateBingo(cardMatrix, calledSet);
+
+    if (!result.isValid) {
+      console.log(`[Claim] Invalid Bingo for user ${userId}. Reason: Not a valid pattern.`);
+      return socket.emit('bingo_result', { success: false, message: 'Not a valid Bingo. Keep playing!' });
+    }
+
+    // 5. Valid Bingo! Lock the room
+    room.claimedBy.push(userId);
+    room.status = 'CLAIMING';
+    
+    // Stop calling numbers
+    if (room.intervalId) {
+      clearInterval(room.intervalId);
+      room.intervalId = null;
+    }
+
+    console.log(`[Claim] Valid Bingo by user ${userId}. Starting 3-second window.`);
+    
+    // 6. Start the 3-second claim window (allows others to tie)
+    setTimeout(async () => {
       try {
-        console.log('CLAIM RECEIVED:', { roomId, userId, cardId, markedNumbers })
+        console.log(`[Claim] Window closed. Processing payouts for room ${roomId}...`);
+        
+        const winnerCount = room.claimedBy.length;
+        const stake = room.stake;
+        const playerCount = Object.keys(room.players).length;
+        
+        let winnerName = 'A Player';
+        const totalPool = stake * playerCount;
+        const platformFee = totalPool * 0.15;
+        const payoutPerWinner = Math.floor((totalPool - platformFee) / winnerCount * 100) / 100;
 
-        if (!cardId) {
-          return socket.emit('bingo_result', { success: false, message: 'Card ID missing' })
-        }
+        // Process payouts in DB
+        await db.transaction(async (trx) => {
+          for (const winnerId of room.claimedBy) {
+            let winnerUser = await trx('users').where({ id: winnerId }).first();
+            if (!winnerUser) winnerUser = await trx('users').where({ telegram_id: winnerId }).first();
+            if (!winnerUser) continue;
+            if (winnerName === 'A Player') winnerName = winnerUser.first_name || winnerUser.username || 'A Player';
 
-        let user = null
-        if (userId) {
-          user = await db('users').where({ id: userId }).first()
-          if (!user) user = await db('users').where({ telegram_id: userId }).first()
-        }
-        if (!user) {
-          return socket.emit('bingo_result', { success: false, message: 'User not found' })
-        }
-
-
-        // Prevent double-claim
-        if (rooms[roomId] && rooms[roomId].claimedBy) {
-          return socket.emit('bingo_result', { success: false, message: 'Bingo already claimed for this game.' })
-        }
-
-        const selections = await db('room_card_selections').where({ room_id: roomId, user_id: user.id })
-        const selection = selections.find((s) => (s.card_id || s.card_number) == cardId) || selections[0]
-
-        if (!selection) {
-          return socket.emit('bingo_result', { success: false, message: 'Card not found' })
-        }
-
-        const cardMatrix = typeof selection.card === 'string'
-          ? JSON.parse(selection.card)
-          : (selection.card || (typeof selection.matrix === 'string' ? JSON.parse(selection.matrix) : selection.matrix))
-
-        const result = validateBingo(cardMatrix, markedNumbers || [])
-
-        if (result.isValid) {
-          const prizePool = rooms[roomId].stake * (rooms[roomId] ? Object.keys(rooms[roomId].players).length : 1)
-          const platformFee = prizePool * 0.15
-          const payoutAmount = prizePool - platformFee
-
-          if (rooms[roomId]) {
-            rooms[roomId].status = 'ENDED'
-            rooms[roomId].winner = userId
-            if (rooms[roomId].intervalId) { clearInterval(rooms[roomId].intervalId); rooms[roomId].intervalId = null }
-          }
-
-          await db.transaction(async (trx) => {
-            const winner = await trx('users').where({ id: user.id }).forUpdate().first()
-            await trx('users').where({ id: user.id }).increment('wallet_balance', payoutAmount)
+            await trx('users').where({ id: winnerUser.id }).increment('wallet_balance', payoutPerWinner);
             await trx('financial_ledger').insert({
-              user_id: user.id,
-              amount: payoutAmount,
+              user_id: winnerUser.id,
+              amount: payoutPerWinner,
               type: 'WINNING_PAYOUT',
-              reference: `ROOM_${roomId}`,
-              created_at: new Date(),
-            })
-          })
-
-          try {
-            if (user.telegram_id && bot && bot.telegram) {
-              await bot.telegram.sendMessage(user.telegram_id, `🎉 *BINGO!* 🎉\nYou won *ETB ${payoutAmount}*!\nYour new balance has been updated in the app.`, { parse_mode: 'Markdown' })
-            }
-          } catch (err) {
-            console.error('Failed to send bot message to winner:', err)
+              reference_id: `ROOM_${roomId}`
+            });
           }
+        });
 
-          if (rooms[roomId]) {
-            for (const pid in rooms[roomId].players) {
-              const p = rooms[roomId].players[pid]
-              if (p.userId && p.userId !== user.id) {
-                try {
-                  const loser = await db('users').where({ id: p.userId }).first()
-                  if (loser && loser.telegram_id && bot && bot.telegram) {
-                    await bot.telegram.sendMessage(loser.telegram_id, '😔 Game over. A winner has claimed Bingo. Better luck next time!')
-                  }
-                } catch (err) {}
-              }
-            }
-          }
+        // Emit game over to everyone
+        room.status = 'ENDED';
+        io.to(roomId).emit('game_over', { 
+          winnerIds: room.claimedBy, 
+          payout: payoutPerWinner,
+          winnerName: winnerName
+        });
 
-          socket.emit('bingo_result', {
-            success: true,
-            message: `BINGO! You won ${payoutAmount} ETB with a ${result.pattern}!`,
-            amount: payoutAmount,
-          })
-          socket.to(roomId).emit('game_over', { winner: { userId: user.id, payout: payoutAmount }, winnerName: user.first_name || user.username || 'Player' })
-        } else {
-          socket.emit('bingo_result', { success: false, message: 'Not a valid Bingo. Keep playing!' })
-        }
+        // Reset room after 5 seconds
+        setTimeout(() => {
+          room.status = 'WAITING';
+          room.claimedBy = [];
+          room.calledNumbers = new Set();
+          room.players = {};
+        }, 5000);
+
       } catch (err) {
-        console.error('Claim error:', err)
-        socket.emit('bingo_result', { success: false, message: 'Server error validating Bingo' })
+        console.error('[Claim] Payout Error:', err);
+        room.status = 'ENDED';
+        io.to(roomId).emit('game_over', { winnerIds: room.claimedBy, payout: 0, winnerName: 'Error' });
       }
-    })
+    }, 3000);
+
+  } catch (err) {
+    console.error('[Claim] Validation Error:', err);
+    socket.emit('bingo_result', { success: false, message: 'Server error during validation.' });
+  }
+});
 
     socket.on('get_my_cards', async ({ roomId, userId } = {}) => {
       try {
