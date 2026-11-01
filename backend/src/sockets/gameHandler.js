@@ -347,7 +347,7 @@ function initGameHandler(io) {
               user_id: winnerUser.id,
               amount: payoutPerWinner,
               type: 'WINNING_PAYOUT',
-              reference_id: `ROOM_${roomId}`
+              
             });
           }
         });

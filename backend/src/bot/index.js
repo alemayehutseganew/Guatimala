@@ -12,12 +12,12 @@ bot.telegram.setChatMenuButton({
 }).then(() => console.log('✅ Menu button forced to COMMANDS mode')).catch(console.error)
 
 bot.telegram.setMyCommands([
-  { command: 'start', description: 'Restart the bot' },
-  { command: 'menu', description: 'Open the main menu' },
-  { command: 'play', description: 'Launch the Bingo game' },
-  { command: 'balance', description: 'Check your wallet balance' },
-  { command: 'deposit', description: 'Deposit funds' },
-  { command: 'withdraw', description: 'Withdraw funds' },
+  { command: 'start', description: 'Restart' },
+  { command: 'menu', description: 'menu' },
+  { command: 'play', description: 'play' },
+  { command: 'balance', description: 'balance' },
+  { command: 'deposit', description: 'Deposit' },
+  { command: 'withdraw', description: 'Withdraw' },
   { command: 'help', description: 'How to play the game' }
 ]).then(() => console.log('✅ Commands registered')).catch(console.error)
 
