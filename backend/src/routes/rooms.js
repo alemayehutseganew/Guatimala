@@ -14,30 +14,36 @@ router.get('/', async (req, res) => {
 })
 router.post('/join', async (req, res) => {
   try {
-    const { stake, userId } = req.body
-    console.log(`[join] Request received for stake: ${stake}`)
-
-    const entryFee = Number(stake) || 0
+    console.log('[join] Request received for stake:', req.body.stake)
+    const entryFee = Number(req.body.stake || req.body.level || 0)
+    const userId = req.body.userId
 
     let user = null
     if (userId) {
       user = await db('users').where({ id: userId }).first()
       if (!user) user = await db('users').where({ telegram_id: userId }).first()
     }
+    console.log('[join] User found:', user ? user.id : 'NOT FOUND')
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    console.log('[join] Checking balance. Current:', user.wallet_balance)
 
     const result = await db.transaction(async (trx) => {
-      let lockedUser = null
-      if (user) {
-        lockedUser = await trx('users').where({ id: user.id }).forUpdate().first()
-        const currentBalance = Number(lockedUser.wallet_balance || 0)
-        if (currentBalance < entryFee) {
-          const error = new Error('INSUFFICIENT_BALANCE')
-          error.code = 'INSUFFICIENT_BALANCE'
-          throw error
-        }
+      console.log('[join] Transaction started')
+
+      const lockedUser = await trx('users').where({ id: user.id }).forUpdate().first()
+      console.log('[join] User row locked. Balance:', lockedUser.wallet_balance)
+
+      if (Number(lockedUser.wallet_balance || 0) < entryFee) {
+        console.log('[join] Insufficient balance')
+        const error = new Error('INSUFFICIENT_BALANCE')
+        error.code = 'INSUFFICIENT_BALANCE'
+        throw error
       }
 
       let room = await trx('game_rooms').where({ stake_amount: entryFee, status: 'WAITING' }).forUpdate().first()
+      console.log('[join] Room found/created:', room ? room.id : 'Creating new room')
+
       if (!room) {
         const [newRoom] = await trx('game_rooms').insert({
           stake_amount: entryFee,
@@ -45,48 +51,49 @@ router.post('/join', async (req, res) => {
           called_numbers: JSON.stringify([])
         }).returning('*')
         room = newRoom
+        console.log('[join] New room created:', room.id)
       }
 
-      if (user) {
-        const existing = await trx('room_participants').where({ room_id: room.id, user_id: user.id }).first()
-        if (existing) {
-          return { room, alreadyJoined: true }
-        }
-
-        await trx('users').where({ id: user.id }).decrement('wallet_balance', entryFee)
-
-        await trx('room_participants').insert({
-          room_id: room.id,
-          user_id: user.id,
-          is_winner: false
-        })
-
-        await trx('financial_ledger').insert({
-          user_id: user.id,
-          amount: -entryFee,
-          type: 'ENTRY_FEE',
-          reference: `ROOM_${room.id}`,
-          created_at: new Date(),
-        })
+      const existing = await trx('room_participants').where({ room_id: room.id, user_id: user.id }).first()
+      if (existing) {
+        console.log('[join] User already in room')
+        return { room, alreadyJoined: true }
       }
 
+      console.log('[join] Deducting balance...')
+      await trx('users').where({ id: user.id }).decrement('wallet_balance', entryFee)
+
+      console.log('[join] Inserting participant...')
+      await trx('room_participants').insert({
+        room_id: room.id,
+        user_id: user.id,
+        is_winner: false
+      })
+
+      console.log('[join] Inserting ledger...')
+      await trx('financial_ledger').insert({
+        user_id: user.id,
+        amount: -entryFee,
+        type: 'ENTRY_FEE',
+        reference: `ROOM_${room.id}`,
+        created_at: new Date(),
+      })
+
+      console.log('[join] Transaction successful')
       return { room, alreadyJoined: false }
     })
 
+    console.log('[join] Sending response:', result.room.id)
     if (result.alreadyJoined) {
       return res.json({ roomId: result.room.id, stake: result.room.stake_amount, message: 'Already joined' })
     }
-
-    res.json({ roomId: result.room.id, stake: result.room.stake_amount, message: 'Entry fee deducted' })
+    return res.json({ roomId: result.room.id, stake: result.room.stake_amount, message: 'Entry fee deducted' })
   } catch (err) {
-    if (err.code === 'INSUFFICIENT_BALANCE' || err.message === 'Insufficient balance') {
-      return res.status(400).json({
-        error: 'INSUFFICIENT_BALANCE',
-        message: 'You do not have enough balance to join this game. Please deposit funds first.'
-      })
+    console.error('[join] CATCH ERROR:', err.message)
+    if (err.code === 'INSUFFICIENT_BALANCE' || err.message === 'INSUFFICIENT_BALANCE') {
+      return res.status(400).json({ error: 'INSUFFICIENT_BALANCE', message: 'Not enough balance.' })
     }
-    console.error('[join] Error:', err)
-    res.status(500).json({ error: 'Join failed', message: err.message })
+    res.status(500).json({ error: 'JOIN_FAILED', message: err.message })
   }
 })
 
