@@ -54,10 +54,13 @@ router.post('/join', async (req, res) => {
         console.log('[join] New room created:', room.id)
       }
 
+      // Check if there is a currently PLAYING room for this stake
+      const activeRoom = await trx('game_rooms').where({ stake_amount: entryFee, status: 'PLAYING' }).first()
+
       const existing = await trx('room_participants').where({ room_id: room.id, user_id: user.id }).first()
       if (existing) {
         console.log('[join] User already in room')
-        return { room, alreadyJoined: true }
+        return { room, activeRoomId: activeRoom ? activeRoom.id : null, alreadyJoined: true }
       }
 
       console.log('[join] Deducting balance...')
@@ -80,14 +83,14 @@ router.post('/join', async (req, res) => {
       })
 
       console.log('[join] Transaction successful')
-      return { room, alreadyJoined: false }
+      return { room, activeRoomId: activeRoom ? activeRoom.id : null, alreadyJoined: false }
     })
 
     console.log('[join] Sending response:', result.room.id)
     if (result.alreadyJoined) {
-      return res.json({ roomId: result.room.id, stake: result.room.stake_amount, message: 'Already joined' })
+      return res.json({ roomId: result.room.id, stake: result.room.stake_amount, activeRoomId: result.activeRoomId, message: 'Already joined' })
     }
-    return res.json({ roomId: result.room.id, stake: result.room.stake_amount, message: 'Entry fee deducted' })
+    return res.json({ roomId: result.room.id, stake: result.room.stake_amount, activeRoomId: result.activeRoomId, message: 'Entry fee deducted' })
   } catch (err) {
     console.error('[join] CATCH ERROR:', err.message)
     if (err.code === 'INSUFFICIENT_BALANCE' || err.message === 'INSUFFICIENT_BALANCE') {
