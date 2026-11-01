@@ -153,11 +153,10 @@ bot.on('text', async (ctx) => {
         amount: official.amount,
         transaction_reference: parsedFromSMS.transactionId,
         provider: 'telebirr',
-        status: 'completed',
+        status: 'pending',
         type: 'deposit',
         provider_response: { payerName: official.payerName, receiverName: official.receiverName },
       })
-      await trx('users').where({ id: user.id }).increment('wallet_balance', official.amount)
       const hasLedger = await trx.schema.hasTable('financial_ledger')
       if (hasLedger) {
         await trx('financial_ledger').insert({
@@ -189,41 +188,16 @@ bot.on('text', async (ctx) => {
         return ctx.reply('❌ User not found.')
       }
 
-      if (Number(user.wallet_balance) < amount) {
-        return ctx.reply('❌ Insufficient real balance. You only have ETB ' + user.wallet_balance + '.')
-      }
-
-      const pending = await db('payments').where({ user_id: user.id, type: 'withdrawal', status: 'pending' }).first()
-      if (pending) {
-        return ctx.reply('❌ You already have a pending withdrawal request. Please wait for it to be processed.')
-      }
-
-      await db.transaction(async (trx) => {
-        await trx('users').where({ id: user.id }).decrement('wallet_balance', amount)
-
-        await trx('payments').insert({
-          user_id: user.id,
-          amount: amount,
-          provider: 'telebirr',
-          status: 'pending',
-          type: 'withdrawal',
-          transaction_reference: `WD-${Date.now()}-${user.id}`,
-        })
-
-        const hasLedger = await trx.schema.hasTable('financial_ledger')
-        if (hasLedger) {
-          await trx('financial_ledger').insert({
-            user_id: user.id,
-            amount: -amount,
-            type: 'WITHDRAWAL',
-            reference: 'PENDING',
-            created_at: new Date(),
-          })
-        }
+      await db('payments').insert({
+        user_id: user.id,
+        amount: amount,
+        provider: 'telebirr',
+        status: 'pending',
+        type: 'withdrawal',
+        transaction_reference: `WD-${Date.now()}-${user.id}`,
       })
 
-      const updatedUser = await db('users').where({ id: user.id }).first()
-      ctx.reply(`✅ Withdrawal request for ETB ${amount.toFixed(2)} submitted successfully!\n\nYour remaining balance is ETB ${Number(updatedUser.wallet_balance).toFixed(2)}. Our admin team will process the payment shortly.`)
+      ctx.reply(`⏳ Your withdrawal request for ETB ${amount.toFixed(2)} is pending admin approval.`)
     } catch (err) {
       console.error('Bot Withdraw Error:', err)
       ctx.reply('❌ An error occurred while processing your withdrawal. Please try again later.')

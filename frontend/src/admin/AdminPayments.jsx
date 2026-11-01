@@ -64,6 +64,7 @@ export default function AdminPayments() {
               <th className="px-6 py-4">Amount</th>
               <th className="px-6 py-4">Reference</th>
               <th className="px-6 py-4">Date</th>
+              <th className="px-6 py-4">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700/50">
@@ -79,6 +80,42 @@ export default function AdminPayments() {
                   <td className={`px-6 py-4 font-mono font-bold text-lg ${styles.text}`}>{styles.sign}{Math.abs(tx.amount).toFixed(2)}</td>
                   <td className="px-6 py-4 font-mono text-sm text-slate-400">{tx.reference_id ? `...${tx.reference_id.slice(-8)}` : '-'}</td>
                   <td className="px-6 py-4 text-sm text-slate-400">{new Date(tx.created_at).toLocaleString()}</td>
+                  <td className="px-6 py-4">
+                    {tx.status === 'pending' ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            const token = localStorage.getItem('adminToken');
+                            await fetch(`${import.meta.env.VITE_API_URL}/api/admin/payments/${tx.id}/approve`, {
+                              method: 'POST',
+                              headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            window.location.reload();
+                          }}
+                          className="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={async () => {
+                            const token = localStorage.getItem('adminToken');
+                            await fetch(`${import.meta.env.VITE_API_URL}/api/admin/payments/${tx.id}/reject`, {
+                              method: 'POST',
+                              headers: { 'Authorization': `Bearer ${token}` }
+                            });
+                            window.location.reload();
+                          }}
+                          className="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <span className={`px-2 py-1 rounded text-xs font-bold ${tx.status === 'completed' ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
+                        {tx.status.toUpperCase()}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               );
             })}
