@@ -63,19 +63,20 @@ const GameScreen = () => {
       socket.emit('get_my_cards', { roomId, userId });
     };
 
-    if (socket.connected) handleJoin();
-    else socket.on('connect', handleJoin);
-
-    socket.on('room_update', (data) => setPlayersCount(data.players || 0));
+    socket.on('room_update', (data) => {
+      if (Number.isFinite(Number(data.players))) setPlayersCount(Number(data.players));
+    });
     socket.on('game_in_progress', (data) => {
       setIsSpectator(true);
       setSpectatorNumbers(data.calledNumbers || []);
       setSpectatorBall(data.currentBall || null);
+      if (Number.isFinite(Number(data.players))) setPlayersCount(Number(data.players));
       socket.emit('join_as_spectator', { roomId, userId });
     });
     socket.on('spectator_sync', (data) => {
       setSpectatorNumbers(data.calledNumbers || []);
       setSpectatorBall(data.currentBall || null);
+      if (Number.isFinite(Number(data.players))) setPlayersCount(Number(data.players));
     });
     socket.on('insufficient_funds', (data) => {
       alert(`💰 ${data.message}`);
@@ -136,6 +137,9 @@ const GameScreen = () => {
       setTimeout(() => setBingoMessage(null), 4000);
     });
 
+    if (socket.connected) handleJoin();
+    else socket.on('connect', handleJoin);
+
     return () => {
       socket.off('connect', handleJoin);
       socket.off('room_update');
@@ -177,13 +181,26 @@ const GameScreen = () => {
     socket.emit('claim_bingo', { roomId, userId: localStorage.getItem('dbUserId'), cardId, markedNumbers });
   };
 
+  const spectatorHistory = [...spectatorNumbers];
+  if (
+    spectatorBall &&
+    Number(spectatorHistory[spectatorHistory.length - 1]) === Number(spectatorBall.number)
+  ) {
+    spectatorHistory.pop();
+  }
+
   if (isSpectator) {
     return (
       <div className="min-h-screen bg-[#1e3a5f] text-white p-4 flex flex-col items-center">
         <div className="w-full max-w-md bg-yellow-500 text-[#112A46] font-bold text-center py-2 rounded-t-xl flex justify-center items-center gap-2 shadow-lg">
-          <span className="animate-pulse">👀</span> GAME IN PROGRESS · SPECTATOR MODE
+          <span className="animate-pulse">👀</span> GAME IN PROGRESS
         </div>
         <div className="w-full max-w-md bg-[#112A46] p-6 rounded-b-xl shadow-2xl flex flex-col items-center border border-blue-900">
+          <div className="w-full flex justify-between items-center text-sm font-bold text-gray-300 mb-4 border-b border-gray-700 pb-3">
+            <span>Players: <span className="text-yellow-400">{playersCount}</span></span>
+            <span>Balls: <span className="text-yellow-400">{spectatorNumbers.length}/75</span></span>
+          </div>
+
           <div className="mb-6">
             {spectatorBall ? (
               <div className={`w-32 h-32 rounded-full border-8 flex flex-col items-center justify-center shadow-xl ${getBallColor(spectatorBall.letter)}`}>
@@ -196,8 +213,23 @@ const GameScreen = () => {
               </div>
             )}
           </div>
-          <p className="text-gray-400 mb-2">Numbers Called: {spectatorNumbers.length}</p>
-          <div className="grid grid-cols-5 gap-1 w-full max-h-64 overflow-y-auto p-2 bg-[#0d1f33] rounded-lg">
+
+          <div className="flex gap-2 mb-6">
+            {spectatorHistory.slice(-5).reverse().map((num) => {
+              let letter = 'B';
+              if (num > 15) letter = 'I';
+              if (num > 30) letter = 'N';
+              if (num > 45) letter = 'G';
+              if (num > 60) letter = 'O';
+              return (
+                <div key={num} className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-bold text-sm ${getBallColor(letter)}`}>
+                  {num}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="grid grid-cols-5 gap-1 w-full mb-6 max-h-48 overflow-y-auto p-2 bg-[#0d1f33] rounded-lg">
             {Array.from({ length: 75 }, (_, i) => i + 1).map((num) => {
               const isCalled = spectatorNumbers.includes(num);
               let letter = 'B';
@@ -212,9 +244,14 @@ const GameScreen = () => {
               );
             })}
           </div>
-          <p className="mt-6 text-center text-sm text-yellow-400 font-bold">
-            Waiting for the current game to finish...<br/>Get ready to join the next round!
-          </p>
+          <div className="text-center mt-2">
+            <p className="text-yellow-400 text-lg font-bold mb-2">🎮 ጨዋታው በመካሄድ ላይ ነው!</p>
+            <p className="text-gray-300 text-sm leading-relaxed">
+              እባክዎ ይጠብቁ። አሁን በሚካሄደው ጨዋታ ተጠናቅቆ አዲሱ ጨዋታ ሲጀመር በራስ-ሰር ወደ ጨዋታው ይገባሉ።
+              <br /><br />
+              መልካም ጨዋታ!
+            </p>
+          </div>
         </div>
       </div>
     );
