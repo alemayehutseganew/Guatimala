@@ -241,7 +241,12 @@ bot.action('menu_help', async (ctx) => {
 })
 
 bot.catch((err, ctx) => {
-  console.error(`Ooops, encountered an error for ${ctx.updateType}`, err)
+  console.error(`[BOT] Telegraf error for ${ctx.updateType}, ${err.message}`)
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[BOT] Unhandled Rejection at:', promise, 'reason:', reason)
+  // Do not crash the process
 })
 
 function launch() {
