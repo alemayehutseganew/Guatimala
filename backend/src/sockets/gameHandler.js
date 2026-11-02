@@ -207,31 +207,102 @@ function initGameHandler(io) {
           let timeLeft = 5
           io.to(roomId).emit('countdown_tick', { timeLeft })
 
-          const countdownInterval = setInterval(() => {
+          const countdownInterval = setInterval(async () => {
             timeLeft -= 1
             io.to(roomId).emit('countdown_tick', { timeLeft })
 
             if (timeLeft <= 0) {
               clearInterval(countdownInterval)
-              rooms[roomId].status = 'PLAYING'
-              io.to(roomId).emit('game_started')
-              console.log(`[Game] Game started for ${roomId}`)
 
-              if (rooms[roomId].intervalId) clearInterval(rooms[roomId].intervalId)
+              const room = rooms[roomId]
+              try {
+                const paymentResult = await db.transaction(async (trx) => {
+                  const participants = await trx('room_participants')
+                    .where({ room_id: roomId })
+                    .forUpdate()
 
-              rooms[roomId].intervalId = setInterval(() => {
-                if (rooms[roomId].status !== 'PLAYING') {
-                  clearInterval(rooms[roomId].intervalId)
-                  rooms[roomId].intervalId = null
+                  for (const participant of participants) {
+                    const user = await trx('users')
+                      .where({ id: participant.user_id })
+                      .forUpdate()
+                      .first()
+
+                    if (!user || Number(user.wallet_balance || 0) < room.stake) {
+                      return { insufficientUserId: participant.user_id }
+                    }
+                  }
+
+                  for (const participant of participants) {
+                    await trx('users').where({ id: participant.user_id }).decrement('wallet_balance', room.stake)
+                    await trx('financial_ledger').insert({
+                      user_id: participant.user_id,
+                      amount: -room.stake,
+                      type: 'ENTRY_FEE'
+                    })
+                  }
+
+                  return { insufficientUserId: null }
+                })
+
+                if (paymentResult.insufficientUserId) {
+                  room.status = 'WAITING'
+                  if (room.readyPlayers) room.readyPlayers.clear()
+
+                  const playerSocketId = Object.keys(room.players).find((id) => (
+                    String(room.players[id].userId) === String(paymentResult.insufficientUserId)
+                  ))
+                  if (playerSocketId) {
+                    io.to(playerSocketId).emit('insufficient_funds', {
+                      message: 'You do not have enough balance to play this game. Please deposit funds.'
+                    })
+                  }
+
+                  io.to(roomId).emit('countdown_tick', { timeLeft: null })
+                  io.to(roomId).emit('game_aborted', {
+                    message: 'Game cancelled: A player does not have enough balance.'
+                  })
+                  io.to(roomId).emit('room_update', {
+                    players: Object.keys(room.players).length,
+                    tickets: ticketCount,
+                    readyPlayers: 0,
+                    stake: room.stake
+                  })
+                  return
+                }
+
+                room.status = 'PLAYING'
+                io.to(roomId).emit('game_started')
+                console.log(`[Game] All players paid. Starting game for room ${roomId}`)
+              } catch (err) {
+                console.error('[Game] Error during payment:', err)
+                room.status = 'WAITING'
+                if (room.readyPlayers) room.readyPlayers.clear()
+                io.to(roomId).emit('countdown_tick', { timeLeft: null })
+                io.to(roomId).emit('game_aborted', { message: 'Financial error. Game cancelled.' })
+                io.to(roomId).emit('room_update', {
+                  players: Object.keys(room.players).length,
+                  tickets: ticketCount,
+                  readyPlayers: 0,
+                  stake: room.stake
+                })
+                return
+              }
+
+              if (room.intervalId) clearInterval(room.intervalId)
+
+              room.intervalId = setInterval(() => {
+                if (room.status !== 'PLAYING') {
+                  clearInterval(room.intervalId)
+                  room.intervalId = null
                   return
                 }
 
                 let number
                 do {
                   number = Math.floor(Math.random() * 75) + 1
-                } while (rooms[roomId].calledNumbers.has(number))
+                } while (room.calledNumbers.has(number))
 
-                rooms[roomId].calledNumbers.add(number)
+                room.calledNumbers.add(number)
 
                 let letter = 'B'
                 if (number > 15) letter = 'I'
@@ -239,15 +310,15 @@ function initGameHandler(io) {
                 if (number > 45) letter = 'G'
                 if (number > 60) letter = 'O'
 
-                rooms[roomId].latestNumber = { number, letter }
+                room.latestNumber = { number, letter }
 
                 console.log(`[Game] Calling number: ${letter} ${number}`)
                 io.to(roomId).emit('new_number_called', { number, letter })
 
-                if (rooms[roomId].calledNumbers.size === 75) {
-                  clearInterval(rooms[roomId].intervalId)
-                  rooms[roomId].intervalId = null
-                  rooms[roomId].status = 'ENDED'
+                if (room.calledNumbers.size === 75) {
+                  clearInterval(room.intervalId)
+                  room.intervalId = null
+                  room.status = 'ENDED'
                 }
               }, 3000)
             }
@@ -274,24 +345,11 @@ function initGameHandler(io) {
         const participant = await db('room_participants').where({ room_id: roomId, user_id: user.id }).first()
         
         if (participant) {
-          const stakeAmount = room.stake || 10
-          
           await db.transaction(async (trx) => {
-            // 1. Refund the wallet
-            await trx('users').where({ id: user.id }).increment('wallet_balance', stakeAmount)
-            
-            // 2. Log the refund
-            await trx('financial_ledger').insert({
-              user_id: user.id,
-              amount: stakeAmount,
-              type: 'REFUND'
-            })
-            
-            // 3. Remove from participants and clear their cards
             await trx('room_participants').where({ room_id: roomId, user_id: user.id }).del()
             await trx('room_card_selections').where({ room_id: roomId, user_id: user.id }).del()
           })
-          console.log(`[Game] Refunded ${stakeAmount} to user ${user.id} (left room).`)
+          console.log(`[Game] Removed unpaid participant ${user.id} from room ${roomId}.`)
         }
       }
     }
@@ -465,20 +523,11 @@ function initGameHandler(io) {
             const participant = await db('room_participants').where({ room_id: roomId, user_id: userId }).first()
             
             if (participant) {
-              const stakeAmount = room.stake || 10
               await db.transaction(async (trx) => {
-                // Refund
-                await trx('users').where({ id: userId }).increment('wallet_balance', stakeAmount)
-                await trx('financial_ledger').insert({
-                  user_id: userId,
-                  amount: stakeAmount,
-                  type: 'REFUND'
-                })
-                // Remove
                 await trx('room_participants').where({ room_id: roomId, user_id: userId }).del()
                 await trx('room_card_selections').where({ room_id: roomId, user_id: userId }).del()
               })
-              console.log(`[Game] Refunded ${stakeAmount} to user ${userId} (disconnected).`)
+              console.log(`[Game] Removed unpaid participant ${userId} from room ${roomId} after disconnect.`)
             }
           }
         }

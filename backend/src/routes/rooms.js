@@ -34,20 +34,7 @@ router.post('/join', async (req, res) => {
     const result = await db.transaction(async (trx) => {
       console.log('[join] Transaction started')
 
-      // 4. LOCK USER AND DEFINE currentBalance
-      const lockedUser = await trx('users').where({ id: user.id }).forUpdate().first()
-      const currentBalance = Number(lockedUser.wallet_balance || 0)
-      
-      console.log('[join] User row locked. Balance:', currentBalance)
-
-      if (currentBalance < stake) {
-        console.log('[join] Insufficient balance')
-        const error = new Error('INSUFFICIENT_BALANCE')
-        error.code = 'INSUFFICIENT_BALANCE'
-        throw error
-      }
-
-      // 5. FIND OR CREATE ROOM
+      // 4. FIND OR CREATE ROOM
       let room = await trx('game_rooms').where({ stake_amount: stake, status: 'WAITING' }).forUpdate().first()
       console.log('[join] Room found/created:', room ? room.id : 'Creating new room')
 
@@ -61,21 +48,14 @@ router.post('/join', async (req, res) => {
         console.log('[join] New room created:', room.id)
       }
 
-      // 6. CHECK IF ALREADY IN ROOM
+      // 5. CHECK IF ALREADY IN ROOM
       const existing = await trx('room_participants').where({ room_id: room.id, user_id: user.id }).first()
 
       if (!existing) {
-        // 7. DEDUCT THE STAKE
-        await trx('users').where({ id: user.id }).decrement('wallet_balance', stake);
         await trx('room_participants').insert({ room_id: room.id, user_id: user.id, is_winner: false })
-        await trx('financial_ledger').insert({
-          user_id: user.id,
-          amount: -stake,
-          type: 'ENTRY_FEE'
-        })
-        console.log(`[JOIN] Deducted ${stake}. New balance: ${currentBalance - stake}`);
+        console.log(`[JOIN] Added user ${user.id} to room ${room.id}.`)
       } else {
-        console.log(`[JOIN] User ${user.id} was already in room. Deduction skipped.`)
+        console.log(`[JOIN] User ${user.id} was already in room. Join skipped.`)
       }
 
       console.log('[join] Transaction successful')
@@ -87,9 +67,6 @@ router.post('/join', async (req, res) => {
 
   } catch (err) {
     console.error('[join] CATCH ERROR:', err.message)
-    if (err.code === 'INSUFFICIENT_BALANCE' || err.message === 'INSUFFICIENT_BALANCE') {
-      return res.status(400).json({ error: 'INSUFFICIENT_BALANCE', message: 'Not enough balance.' })
-    }
     res.status(500).json({ error: 'JOIN_FAILED', message: err.message })
   }
 })
