@@ -147,12 +147,7 @@ export default function Lobby() {
               key={stake} 
               className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center justify-between shadow-2xl hover:bg-white/10 transition-all group overflow-hidden"
             >
-              {/* Bonus Ribbon (Only for first two) */}
-              {idx < 2 && (
-                <div className="absolute top-0 right-0 bg-gradient-to-r from-yellow-400 to-orange-500 text-[#0f2027] text-[10px] font-black px-4 py-1 rounded-bl-xl shadow-lg">
-                  BONUS
-                </div>
-              )}
+              
 
               {/* Left side: Stake Value */}
               <div className="flex flex-col">

@@ -18,7 +18,7 @@ export default function GameHistory() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#112A46] text-white p-4">
+    <div className="min-h-screen bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364] text-white p-4">
       <button onClick={() => navigate('/')} className="mb-4 text-yellow-400">← Back</button>
       <h1 className="text-2xl font-bold mb-4">Game History</h1>
       {loading ? (
@@ -26,13 +26,24 @@ export default function GameHistory() {
       ) : history.length === 0 ? (
         <p>No history yet.</p>
       ) : (
-        <ul className="space-y-2">
+        <div className="space-y-2">
           {history.map((h, i) => (
-            <li key={i} className="bg-white/10 rounded p-3">
-              Stake: {h.stake_amount} | Status: {h.is_winner ? 'Won' : 'Lost'} | Date: {new Date(h.joined_at).toLocaleString()}
-            </li>
+            <div
+              key={i}
+              className={`bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 ${
+                h.is_winner ? 'border-green-500 bg-green-500/10 text-green-400' : 'border-red-500 bg-red-500/10 text-red-400'
+              }`}
+            >
+              <div className="flex justify-between items-start">
+                <span>Stake: {h.stake_amount}</span>
+                <span className="text-sm status-badge">${
+                  h.is_winner ? 'Won' : 'Lost'
+                }</span>
+              </div>
+              <span>Date: {new Date(h.joined_at).toLocaleString()}</span>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   )

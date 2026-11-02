@@ -17,7 +17,7 @@ export default function Leaderboard() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#112A46] text-white p-4">
+    <div className="min-h-screen bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364] text-white p-4">
       <button onClick={() => navigate('/')} className="mb-4 text-yellow-400">← Back</button>
       <h1 className="text-2xl font-bold mb-4">Leaderboard</h1>
       {loading ? (
@@ -25,13 +25,37 @@ export default function Leaderboard() {
       ) : leaders.length === 0 ? (
         <p>No leaders yet.</p>
       ) : (
-        <ol className="space-y-2">
+        <div className="space-y-4">
           {leaders.map((l, i) => (
-            <li key={i} className="bg-white/10 rounded p-3">
-              {i + 1}. {l.first_name || 'Player'} - {l.wallet_balance} ETB
-            </li>
+            <div
+              key={i}
+              className={`bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 ${
+                i === 0 ? 'border-yellow-400 bg-yellow-400/10' : i === 1 ? 'border-gray-300 bg-gray-300/10' : i === 2 ? 'border-orange-400 bg-orange-400/10' : ''
+              }`}
+              style={{ position: 'relative' }}
+            >
+              <span
+                className={`absolute top-0 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold ${
+                  i === 0 ? 'bg-yellow-400 text-[#0f2027]' : i === 1 ? 'bg-gray-300 text-white' : i === 2 ? 'bg-orange-400 text-white' : ''
+                }`}
+              >
+                {i + 1}
+              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold ${
+                  i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-orange-400' : ''
+                }">
+                  {i + 1}. {l.first_name || 'Player'}
+                </span>
+                <span className="text-lg ${
+                  i === 0 ? 'text-yellow-300' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-orange-300' : ''
+                }">
+                  {l.wallet_balance} ETB
+                </span>
+              </div>
+            </div>
           ))}
-        </ol>
+        </div>
       )}
     </div>
   )

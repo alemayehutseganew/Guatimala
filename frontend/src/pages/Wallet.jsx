@@ -87,17 +87,20 @@ export default function Wallet() {
   const inputClass = "w-full bg-[#1e3a5f] text-white placeholder-gray-400 border-2 border-gray-600 rounded-lg p-3 focus:outline-none focus:border-yellow-500"
 
   return (
-    <div className="min-h-screen bg-[#112A46] text-white p-4">
+    <div className="min-h-screen bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364] text-white p-4">
       <button onClick={() => navigate('/')} className="mb-4 text-yellow-400">← Back</button>
       <h1 className="text-2xl font-bold mb-4">Wallet</h1>
 
-      <div className="bg-white/10 rounded-lg p-4 mb-4">
-        <p className="text-sm text-gray-300">Balance</p>
-        <p className="text-2xl font-bold">ETB {user?.wallet_balance ?? '0.00'}</p>
+      {/* Balance Card */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-4">
+        <p className="text-sm text-gray-300 uppercase font-bold">Balance</p>
+        <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
+          ETB {user?.wallet_balance ?? '0.00'}
+        </p>
       </div>
 
       {/* Manual Deposit */}
-      <div className="bg-white/10 rounded-lg p-4 mb-4">
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-4">
         <h2 className="text-lg font-bold mb-3">Manual Deposit (Telebirr)</h2>
         <div className="bg-[#1e3a5f] border-2 border-yellow-500 rounded-xl p-4 mb-4">
           <p className="text-sm text-gray-300 mb-2">Send your deposit to this Telebirr number:</p>
@@ -123,7 +126,7 @@ export default function Wallet() {
             placeholder="e.g. 50"
             value={depositAmount}
             onChange={(e) => setDepositAmount(e.target.value)}
-            className={inputClass}
+            className="w-full bg-[#1e3a5f] text-white placeholder-gray-400 border-2 border-gray-600 rounded-lg p-3 focus:outline-none focus:border-yellow-500"
           />
         </div>
         <div className="mb-3">
@@ -133,20 +136,20 @@ export default function Wallet() {
             placeholder="e.g. CJU5RZ5NM3"
             value={reference}
             onChange={(e) => setReference(e.target.value)}
-            className={inputClass}
+            className="w-full bg-[#1e3a5f] text-white placeholder-white border-2 border-gray-600 rounded-lg p-3"
           />
         </div>
         <button
           onClick={deposit}
           disabled={loading}
-          className="w-full bg-yellow-400 text-[#112A46] font-bold py-2 rounded disabled:opacity-50"
+          className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-[#0f2027] font-bold py-2 rounded disabled:opacity-50 mt-2"
         >
           Verify & Deposit
         </button>
       </div>
 
       {/* Withdraw */}
-      <div className="bg-white/10 rounded-lg p-4 mb-4">
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-4">
         <h2 className="text-lg font-bold mb-2">Withdraw</h2>
         <p className="text-sm text-gray-300 mb-2">Minimum withdrawal: 100 ETB</p>
         <input
@@ -166,7 +169,7 @@ export default function Wallet() {
         <button
           onClick={withdraw}
           disabled={loading}
-          className="w-full bg-red-500 text-white font-bold py-2 rounded disabled:opacity-50"
+          className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-[#0f2027] font-bold py-2 rounded disabled:opacity-50 mt-2"
         >
           Withdraw
         </button>
