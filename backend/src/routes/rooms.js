@@ -15,12 +15,13 @@ router.get('/', async (req, res) => {
 
 router.post('/join', async (req, res) => {
   try {
-    // 1. DEFINE THE VARIABLES HERE
+    // 1. DEFINE VARIABLES
     const stake = Number(req.body.stake || req.body.level);
     const userId = req.tgUser?.id || req.body.userId;
     
     console.log('[join] Request received for stake:', stake, 'userId:', userId);
 
+    // 2. FIND USER
     let user = null
     if (userId) {
       user = await db('users').where({ id: userId }).first()
@@ -29,23 +30,24 @@ router.post('/join', async (req, res) => {
     console.log('[join] User found:', user ? user.id : 'NOT FOUND')
     if (!user) return res.status(404).json({ error: 'User not found' })
 
-    console.log('[join] Checking balance. Current:', user.wallet_balance)
-
-    // START THE TRANSACTION
+    // 3. START TRANSACTION
     const result = await db.transaction(async (trx) => {
       console.log('[join] Transaction started')
 
+      // 4. LOCK USER AND DEFINE currentBalance
       const lockedUser = await trx('users').where({ id: user.id }).forUpdate().first()
-      console.log('[join] User row locked. Balance:', lockedUser.wallet_balance)
+      const currentBalance = Number(lockedUser.wallet_balance || 0)
+      
+      console.log('[join] User row locked. Balance:', currentBalance)
 
-      if (Number(lockedUser.wallet_balance || 0) < stake) {
+      if (currentBalance < stake) {
         console.log('[join] Insufficient balance')
         const error = new Error('INSUFFICIENT_BALANCE')
         error.code = 'INSUFFICIENT_BALANCE'
         throw error
       }
 
-      // 2. FIND OR CREATE ROOM
+      // 5. FIND OR CREATE ROOM
       let room = await trx('game_rooms').where({ stake_amount: stake, status: 'WAITING' }).forUpdate().first()
       console.log('[join] Room found/created:', room ? room.id : 'Creating new room')
 
@@ -59,11 +61,11 @@ router.post('/join', async (req, res) => {
         console.log('[join] New room created:', room.id)
       }
 
-      // 3. CHECK IF ALREADY IN ROOM
+      // 6. CHECK IF ALREADY IN ROOM
       const existing = await trx('room_participants').where({ room_id: room.id, user_id: user.id }).first()
 
       if (!existing) {
-        // 4. DEDUCTION THE STAKE
+        // 7. DEDUCT THE STAKE
         await trx('users').where({ id: user.id }).decrement('wallet_balance', stake);
         await trx('room_participants').insert({ room_id: room.id, user_id: user.id, is_winner: false })
         await trx('financial_ledger').insert({
