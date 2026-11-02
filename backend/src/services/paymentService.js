@@ -72,7 +72,7 @@ async function verifyTelebirrReceipt(reference) {
       return { success: false, error: 'Could not extract a valid amount from the receipt.' };
     }
 
-    const OUR_RECEIVER_NAME = 'ALEMAYEHU TSEGANEW';
+    const OUR_RECEIVER_NAME = 'KENAW NURU MOHABE';
     const receiverName = receipt.creditedPartyName || '';
     if (receiverName && !receiverName.toUpperCase().includes(OUR_RECEIVER_NAME)) {
       return { 

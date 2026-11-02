@@ -116,7 +116,7 @@ bot.command('help', (ctx) => {
 // /deposit command
 bot.command('deposit', async (ctx) => {
   userStates[ctx.from.id] = 'WAITING_FOR_RECEIPT'
-  ctx.reply('💳 To Deposit:\n\n👤 Name: Alemayehu Tseganew\n📱 Telebirr: 0963184624\n\n1. Open your Telebirr app\n2. Send money to the number above\n3. Copy the SMS you receive\n\n👇 Now paste the full SMS here:').catch(() => {})
+  ctx.reply('💳 To Deposit:\n\n👤 Name: Kenaw Nuru Mohabe\n📱 Telebirr: 0989002307\n\n1. Open your Telebirr app\n2. Send money to the number above\n3. Copy the SMS you receive\n\n👇 Now paste the full SMS here:').catch(() => {})
 })
 
 // /withdraw command
@@ -141,7 +141,7 @@ bot.action('menu_balance', async (ctx) => {
 bot.action('menu_deposit', async (ctx) => {
   await ctx.answerCbQuery().catch(() => {})
   userStates[ctx.from.id] = 'WAITING_FOR_RECEIPT'
-  const msg = '💳 To Deposit:\n\n👤 Name: Alemayehu Tseganew\n📱 Telebirr: 0963184624\n\n1. Open your Telebirr app\n2. Send money to the number above\n3. Copy the SMS you receive\n\n👇 Now paste the full SMS here:'
+  const msg = '💳 To Deposit:\n\n👤 Name: Kenaw Nuru Mohabe\n📱 Telebirr: 0989002307\n\n1. Open your Telebirr app\n2. Send money to the number above\n3. Copy the SMS you receive\n\n👇 Now paste the full SMS here:'
   ctx.reply(msg).catch(() => {})
 })
 
