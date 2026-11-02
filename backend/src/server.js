@@ -15,7 +15,11 @@ const { launch: launchBot } = require('./bot')
 const app = express()
 
 const corsOptions = {
-  origin: ['http://localhost:5173', 'https://guatimala.vercel.app'],
+  origin: [
+    'http://localhost:5173',
+    'https://guatimala.vercel.app',
+    'https://guatimala-git-main-alemayehutseganews-projects.vercel.app'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-telegram-init-data']
