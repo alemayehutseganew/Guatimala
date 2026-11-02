@@ -176,42 +176,57 @@ export default function Lobby() {
 
       {/* Slide-out Menu Drawer */}
       {isMenuOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex" onClick={() => setIsMenuOpen(false)}>
-          <div 
-            className="w-72 bg-[#0f2027] h-full p-6 flex flex-col shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-xl font-black text-yellow-400">Menu</h2>
-              <button onClick={() => setIsMenuOpen(false)} className="text-white text-2xl">&times;</button>
-            </div>
-
-            <nav className="flex flex-col gap-4">
-              <button onClick={() => { setIsMenuOpen(false); navigate('/wallet'); }} className="text-left text-white font-bold text-lg hover:text-yellow-400 transition-colors">
-                💰 My Wallet
-              </button>
-              <button onClick={() => { setIsMenuOpen(false); navigate('/history'); }} className="text-left text-white font-bold text-lg hover:text-yellow-400 transition-colors">
-                📜 Game History
-              </button>
-              <button onClick={() => { setIsMenuOpen(false); navigate('/leaderboard'); }} className="text-left text-white font-bold text-lg hover:text-yellow-400 transition-colors">
-                🏆 Leaderboard
-              </button>
-              <button onClick={() => { setIsMenuOpen(false); setHelpOpen(true); }} className="text-left text-white font-bold text-lg hover:text-yellow-400 transition-colors">
-                ❓ Help
-              </button>
-            </nav>
-
-            <div className="mt-auto pt-6 border-t border-white/10">
-              <button 
-                onClick={handleLogout} 
-                className="w-full bg-red-600 text-white font-bold py-3 rounded-xl"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex" onClick={() => setIsMenuOpen(false)}>
+    <div 
+      className="w-72 bg-gradient-to-b from-[#0f2027] to-[#203a43] h-full p-6 flex flex-col shadow-2xl border-r border-white/10"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8 pb-4 border-b border-white/10">
+        <div>
+          <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">GOBINGO</h2>
+          <p className="text-xs text-gray-400 mt-1">Player Menu</p>
         </div>
-      )}
+        <button onClick={() => setIsMenuOpen(false)} className="text-white text-3xl hover:text-yellow-400 transition-colors">&times;</button>
+      </div>
+
+      {/* Profile Snapshot */}
+      <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 mb-6 border border-white/10">
+        <p className="text-xs text-gray-400 uppercase font-bold">Wallet Balance</p>
+        <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
+          ETB {walletBalance.toFixed(2)}
+        </p>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex flex-col gap-2">
+        <button onClick={() => { setIsMenuOpen(false); navigate('/wallet'); }} className="flex items-center gap-3 w-full text-left text-white font-bold text-base p-3 rounded-xl hover:bg-white/10 transition-all group">
+          <span className="text-2xl group-hover:scale-110 transition-transform">💰</span> 
+          <span>My Wallet</span>
+        </button>
+        <button onClick={() => { setIsMenuOpen(false); navigate('/history'); }} className="flex items-center gap-3 w-full text-left text-white font-bold text-base p-3 rounded-xl hover:bg-white/10 transition-all group">
+          <span className="text-2xl group-hover:scale-110 transition-transform">📜</span> 
+          <span>Game History</span>
+        </button>
+        <button onClick={() => { setIsMenuOpen(false); navigate('/leaderboard'); }} className="flex items-center gap-3 w-full text-left text-white font-bold text-base p-3 rounded-xl hover:bg-white/10 transition-all group">
+          <span className="text-2xl group-hover:scale-110 transition-transform">🏆</span> 
+          <span>Leaderboard</span>
+        </button>
+        <button onClick={() => { setIsMenuOpen(false); setHelpOpen(true); }} className="flex items-center gap-3 w-full text-left text-white font-bold text-base p-3 rounded-xl hover:bg-white/10 transition-all group">
+          <span className="text-2xl group-hover:scale-110 transition-transform">❓</span> 
+          <span>Help & Rules</span>
+        </button>
+      </nav>
+
+      {/* Logout at bottom */}
+      <div className="mt-auto pt-6 border-t border-white/10">
+        <button onClick={handleLogout} className="w-full bg-red-600/20 text-red-400 border border-red-600/30 font-bold py-3 rounded-xl hover:bg-red-600 hover:text-white transition-all">
+          Logout
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Help Modal */}
       {helpOpen && (

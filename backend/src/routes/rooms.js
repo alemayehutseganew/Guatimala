@@ -65,7 +65,11 @@ router.post('/join', async (req, res) => {
       const existing = await trx('room_participants').where({ room_id: room.id, user_id: user.id }).first()
 
       if (!existing) {
-        // 4. ADD PARTICIPANT & LOG TO LEDGER
+        // 1. DEDUCT THE STAKE
+        await trx('users').where({ id: user.id }).decrement('wallet_balance', entryFee)
+        console.log(`[JOIN] Deducted ${entryFee} from user ${user.id}.`)
+
+        // 2. ADD PARTICIPANT & LOG TO LEDGER
         await trx('room_participants').insert({ room_id: room.id, user_id: user.id, is_winner: false })
         await trx('financial_ledger').insert({
           user_id: user.id,

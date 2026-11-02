@@ -237,38 +237,58 @@ function initGameHandler(io) {
     })
 
     socket.on('leave_room', async ({ roomId, userId }) => {
-      try {
-        const room = rooms[roomId]
-        if (room && (room.status === 'WAITING' || room.status === 'COUNTDOWN')) {
-          let user = null
-          if (userId) {
-            user = await db('users').where({ id: userId }).first()
-            if (!user) user = await db('users').where({ telegram_id: userId }).first()
-          }
-          if (user) {
-            const stake = room.stake
-            await db.transaction(async (trx) => {
-              await trx('users').where({ id: user.id }).increment('wallet_balance', stake)
-              await trx('financial_ledger').insert({
-                user_id: user.id,
-                amount: stake,
-                type: 'REFUND',
-                reference: `ROOM_${roomId}`,
-                created_at: new Date(),
-              })
-              await trx('room_participants').where({ room_id: roomId, user_id: user.id }).del()
-            })
-          }
-        }
-        if (room && room.players[socket.id]) {
-          delete room.players[socket.id]
-          if (room.readyPlayers) room.readyPlayers.delete(socket.id)
-        }
-        socket.leave(roomId)
-      } catch (err) {
-        console.error('[Game] leave_room error:', err)
+  try {
+    const room = rooms[roomId]
+    
+    // Only refund if the game hasn't started
+    if (room && (room.status === 'WAITING' || room.status === 'COUNTDOWN')) {
+      let user = null
+      if (userId) {
+        user = await db('users').where({ id: userId }).first()
+        if (!user) user = await db('users').where({ telegram_id: userId }).first()
       }
-    })
+
+      if (user) {
+        const participant = await db('room_participants').where({ room_id: roomId, user_id: user.id }).first()
+        
+        if (participant) {
+          const stakeAmount = room.stake || 10
+          
+          await db.transaction(async (trx) => {
+            // 1. Refund the wallet
+            await trx('users').where({ id: user.id }).increment('wallet_balance', stakeAmount)
+            
+            // 2. Log the refund
+            await trx('financial_ledger').insert({
+              user_id: user.id,
+              amount: stakeAmount,
+              type: 'REFUND'
+            })
+            
+            // 3. Remove from participants and clear their cards
+            await trx('room_participants').where({ room_id: roomId, user_id: user.id }).del()
+            await trx('room_card_selections').where({ room_id: roomId, user_id: user.id }).del()
+          })
+          console.log(`[Game] Refunded ${stakeAmount} to user ${user.id} (left room).`)
+        }
+      }
+    }
+    
+    // Clean up memory
+    if (room && room.players && room.players[socket.id]) {
+      delete room.players[socket.id]
+      if (room.readyPlayers) room.readyPlayers.delete(socket.id)
+      
+      io.to(roomId).emit('room_update', {
+        players: Object.keys(room.players).length,
+        readyPlayers: room.readyPlayers ? room.readyPlayers.size : 0
+      })
+    }
+    socket.leave(roomId)
+  } catch (err) {
+    console.error('[Game] leave_room error:', err)
+  }
+})
     socket.on('claim_bingo', async ({ roomId, userId, cardId }) => {
   const room = rooms[roomId];
   if (!room) return;
@@ -403,17 +423,55 @@ function initGameHandler(io) {
       }
     })
 
-    socket.on('disconnect', () => {
-      for (const roomId in rooms) {
-        const room = rooms[roomId]
-        if (room.players[socket.id]) {
-          delete room.players[socket.id]
-          if (room.readyPlayers) room.readyPlayers.delete(socket.id)
-          const pc = Object.keys(room.players).length
-          io.to(roomId).emit('room_update', { playerCount: pc, players: pc, readyPlayers: room.readyPlayers ? room.readyPlayers.size : 0 })
+    socket.on('disconnect', async () => {
+  try {
+    // Loop through all rooms to find which one this socket was in
+    for (const roomId in rooms) {
+      const room = rooms[roomId]
+      
+      // If this socket is in the room's player list
+      if (room.players && room.players[socket.id]) {
+        const playerData = room.players[socket.id]
+        const userId = playerData.userId
+        
+        // Only refund if the game hasn't started
+        if (room.status === 'WAITING' || room.status === 'COUNTDOWN') {
+          if (userId) {
+            const participant = await db('room_participants').where({ room_id: roomId, user_id: userId }).first()
+            
+            if (participant) {
+              const stakeAmount = room.stake || 10
+              await db.transaction(async (trx) => {
+                // Refund
+                await trx('users').where({ id: userId }).increment('wallet_balance', stakeAmount)
+                await trx('financial_ledger').insert({
+                  user_id: userId,
+                  amount: stakeAmount,
+                  type: 'REFUND'
+                })
+                // Remove
+                await trx('room_participants').where({ room_id: roomId, user_id: userId }).del()
+                await trx('room_card_selections').where({ room_id: roomId, user_id: userId }).del()
+              })
+              console.log(`[Game] Refunded ${stakeAmount} to user ${userId} (disconnected).`)
+            }
+          }
         }
+        
+        // Clean up memory
+        delete room.players[socket.id]
+        if (room.readyPlayers) room.readyPlayers.delete(userId)
+        
+        io.to(roomId).emit('room_update', {
+          players: Object.keys(room.players).length,
+          readyPlayers: room.readyPlayers ? room.readyPlayers.size : 0
+        })
       }
-    })
+    }
+  } catch (err) {
+    console.error('[Game] disconnect error:', err)
+  }
+})
   })
 }
 
