@@ -72,6 +72,14 @@ const GameScreen = () => {
       setSpectatorNumbers(data.calledNumbers || [])
       setSpectatorBall(data.currentBall || null)
     }
+    const handleInsufficientFunds = (data) => {
+      alert(`💰 ${data.message}`)
+      window.location.href = '/wallet'
+    }
+    const handleGameAborted = (data) => {
+      alert(`⚠️ ${data.message}`)
+      window.location.href = '/'
+    }
 
     const handleJoin = () => {
       socket.emit('join_room', { roomId, userId, stake });
@@ -97,6 +105,8 @@ const GameScreen = () => {
       socket.emit('join_as_spectator', { roomId, userId })
     })
     socket.on('spectator_sync', handleSpectatorSync)
+    socket.on('insufficient_funds', handleInsufficientFunds)
+    socket.on('game_aborted', handleGameAborted)
     socket.on('countdown_tick', (data) => setCountdown(data.timeLeft));
     socket.on('my_cards', (data) => {
       if (data.cards && data.cards.length > 0) setCardsData(data.cards);
@@ -173,6 +183,8 @@ const GameScreen = () => {
       socket.off('bingo_result');
       socket.off('game_in_progress');
       socket.off('spectator_sync', handleSpectatorSync);
+      socket.off('insufficient_funds', handleInsufficientFunds);
+      socket.off('game_aborted', handleGameAborted);
     };
   }, [socket, roomId, userId, stake, soundEnabled, isSpectator]);
 

@@ -207,120 +207,103 @@ function initGameHandler(io) {
           let timeLeft = 5
           io.to(roomId).emit('countdown_tick', { timeLeft })
 
+          const room = rooms[roomId]
           const countdownInterval = setInterval(async () => {
-            timeLeft -= 1
-            io.to(roomId).emit('countdown_tick', { timeLeft })
+            timeLeft -= 1;
+            io.to(roomId).emit('countdown_tick', { timeLeft });
 
             if (timeLeft <= 0) {
-              clearInterval(countdownInterval)
-
-              const room = rooms[roomId]
+              clearInterval(countdownInterval);
+              
               try {
-                const paymentResult = await db.transaction(async (trx) => {
-                  const participants = await trx('room_participants')
-                    .where({ room_id: roomId })
-                    .forUpdate()
-
-                  for (const participant of participants) {
-                    const user = await trx('users')
-                      .where({ id: participant.user_id })
-                      .forUpdate()
-                      .first()
-
-                    if (!user || Number(user.wallet_balance || 0) < room.stake) {
-                      return { insufficientUserId: participant.user_id }
+                // 1. Get all current players in the room
+                const participants = await db('room_participants').where({ room_id: roomId });
+                const validPlayers = [];
+                
+                // 2. Loop through and verify each player's balance
+                for (const p of participants) {
+                  const u = await db('users').where({ id: p.user_id }).first();
+                  if (u && Number(u.wallet_balance) >= room.stake) {
+                    validPlayers.push({ participant: p, user: u });
+                  } else {
+                    // 3. Player has no money. Kick them out.
+                    const playerSocketId = Object.keys(room.players).find(id => String(room.players[id].userId) === String(p.user_id));
+                    if (playerSocketId) {
+                      // Notify the player
+                      io.to(playerSocketId).emit('insufficient_funds', { message: 'You do not have enough balance. Please deposit funds to play.' });
+                      
+                      // Remove from room
+                      io.in(playerSocketId).socketsLeave(roomId);
+                      const kickedUserId = room.players[playerSocketId].userId;
+                      delete room.players[playerSocketId];
+                      for (const readyUserId of room.readyPlayers) {
+                        if (String(readyUserId) === String(kickedUserId)) {
+                          room.readyPlayers.delete(readyUserId);
+                        }
+                      }
                     }
+                    // Remove from DB participants
+                    await db('room_participants').where({ room_id: roomId, user_id: p.user_id }).del();
+                    await db('room_card_selections').where({ room_id: roomId, user_id: p.user_id }).del();
                   }
+                }
 
-                  for (const participant of participants) {
-                    await trx('users').where({ id: participant.user_id }).decrement('wallet_balance', room.stake)
+                // 4. If not enough players remain (less than 2), abort the game
+                if (validPlayers.length < 2) {
+                  room.status = 'WAITING';
+                  room.readyPlayers.clear();
+                  io.to(roomId).emit('game_aborted', { message: 'Not enough players with sufficient balance. Game cancelled.' });
+                  return;
+                }
+
+                // 5. Deduct money from all VALID players
+                await db.transaction(async (trx) => {
+                  for (const vp of validPlayers) {
+                    await trx('users').where({ id: vp.user.id }).decrement('wallet_balance', room.stake);
                     await trx('financial_ledger').insert({
-                      user_id: participant.user_id,
+                      user_id: vp.user.id,
                       amount: -room.stake,
                       type: 'ENTRY_FEE'
-                    })
+                    });
                   }
+                });
 
-                  return { insufficientUserId: null }
-                })
-
-                if (paymentResult.insufficientUserId) {
-                  room.status = 'WAITING'
-                  if (room.readyPlayers) room.readyPlayers.clear()
-
-                  const playerSocketId = Object.keys(room.players).find((id) => (
-                    String(room.players[id].userId) === String(paymentResult.insufficientUserId)
-                  ))
-                  if (playerSocketId) {
-                    io.to(playerSocketId).emit('insufficient_funds', {
-                      message: 'You do not have enough balance to play this game. Please deposit funds.'
-                    })
+                // 6. START THE GAME
+                console.log(`[Game] All valid players paid. Starting game for room ${roomId}`);
+                room.status = 'PLAYING';
+                io.to(roomId).emit('game_started');
+                
+                // Start calling numbers
+                if (room.intervalId) clearInterval(room.intervalId);
+                room.intervalId = setInterval(() => {
+                  if (room.status !== 'PLAYING') {
+                    clearInterval(room.intervalId);
+                    return;
                   }
+                  let num;
+                  do { num = Math.floor(Math.random() * 75) + 1; } while (room.calledNumbers.has(num));
+                  room.calledNumbers.add(num);
+                  
+                  let letter = 'B';
+                  if (num > 15) letter = 'I';
+                  if (num > 30) letter = 'N';
+                  if (num > 45) letter = 'G';
+                  if (num > 60) letter = 'O';
+                  
+                  room.latestNumber = { number: num, letter };
+                  io.to(roomId).emit('new_number_called', { number: num, letter });
+                  
+                  if (room.calledNumbers.size === 75) {
+                    clearInterval(room.intervalId);
+                    room.status = 'ENDED';
+                  }
+                }, 3000);
 
-                  io.to(roomId).emit('countdown_tick', { timeLeft: null })
-                  io.to(roomId).emit('game_aborted', {
-                    message: 'Game cancelled: A player does not have enough balance.'
-                  })
-                  io.to(roomId).emit('room_update', {
-                    players: Object.keys(room.players).length,
-                    tickets: ticketCount,
-                    readyPlayers: 0,
-                    stake: room.stake
-                  })
-                  return
-                }
-
-                room.status = 'PLAYING'
-                io.to(roomId).emit('game_started')
-                console.log(`[Game] All players paid. Starting game for room ${roomId}`)
               } catch (err) {
-                console.error('[Game] Error during payment:', err)
-                room.status = 'WAITING'
-                if (room.readyPlayers) room.readyPlayers.clear()
-                io.to(roomId).emit('countdown_tick', { timeLeft: null })
-                io.to(roomId).emit('game_aborted', { message: 'Financial error. Game cancelled.' })
-                io.to(roomId).emit('room_update', {
-                  players: Object.keys(room.players).length,
-                  tickets: ticketCount,
-                  readyPlayers: 0,
-                  stake: room.stake
-                })
-                return
+                console.error('[Game] Error during countdown end:', err);
+                room.status = 'WAITING';
+                io.to(roomId).emit('game_aborted', { message: 'Server error. Game cancelled.' });
               }
-
-              if (room.intervalId) clearInterval(room.intervalId)
-
-              room.intervalId = setInterval(() => {
-                if (room.status !== 'PLAYING') {
-                  clearInterval(room.intervalId)
-                  room.intervalId = null
-                  return
-                }
-
-                let number
-                do {
-                  number = Math.floor(Math.random() * 75) + 1
-                } while (room.calledNumbers.has(number))
-
-                room.calledNumbers.add(number)
-
-                let letter = 'B'
-                if (number > 15) letter = 'I'
-                if (number > 30) letter = 'N'
-                if (number > 45) letter = 'G'
-                if (number > 60) letter = 'O'
-
-                room.latestNumber = { number, letter }
-
-                console.log(`[Game] Calling number: ${letter} ${number}`)
-                io.to(roomId).emit('new_number_called', { number, letter })
-
-                if (room.calledNumbers.size === 75) {
-                  clearInterval(room.intervalId)
-                  room.intervalId = null
-                  room.status = 'ENDED'
-                }
-              }, 3000)
             }
           }, 1000)
         }
