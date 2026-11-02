@@ -15,9 +15,11 @@ router.get('/', async (req, res) => {
 
 router.post('/join', async (req, res) => {
   try {
-    console.log('[join] Request received for stake:', req.body.stake)
-    const entryFee = Number(req.body.stake || req.body.level || 0)
-    const userId = req.body.userId
+    // 1. DEFINE THE VARIABLES HERE
+    const stake = Number(req.body.stake || req.body.level);
+    const userId = req.tgUser?.id || req.body.userId;
+    
+    console.log('[join] Request received for stake:', stake, 'userId:', userId);
 
     let user = null
     if (userId) {
@@ -36,7 +38,7 @@ router.post('/join', async (req, res) => {
       const lockedUser = await trx('users').where({ id: user.id }).forUpdate().first()
       console.log('[join] User row locked. Balance:', lockedUser.wallet_balance)
 
-      if (Number(lockedUser.wallet_balance || 0) < entryFee) {
+      if (Number(lockedUser.wallet_balance || 0) < stake) {
         console.log('[join] Insufficient balance')
         const error = new Error('INSUFFICIENT_BALANCE')
         error.code = 'INSUFFICIENT_BALANCE'
@@ -44,12 +46,12 @@ router.post('/join', async (req, res) => {
       }
 
       // 2. FIND OR CREATE ROOM
-      let room = await trx('game_rooms').where({ stake_amount: entryFee, status: 'WAITING' }).forUpdate().first()
+      let room = await trx('game_rooms').where({ stake_amount: stake, status: 'WAITING' }).forUpdate().first()
       console.log('[join] Room found/created:', room ? room.id : 'Creating new room')
 
       if (!room) {
         const [newRoom] = await trx('game_rooms').insert({
-          stake_amount: entryFee,
+          stake_amount: stake,
           status: 'WAITING',
           called_numbers: JSON.stringify([])
         }).returning('*')
