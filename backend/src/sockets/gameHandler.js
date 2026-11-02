@@ -184,7 +184,8 @@ function initGameHandler(io) {
             socket.emit('game_in_progress', {
               message: 'A game is in progress. Please wait for the next round.',
               currentBall: rooms[roomId].latestNumber || null,
-              calledNumbers: Array.from(rooms[roomId].calledNumbers)
+              calledNumbers: Array.from(rooms[roomId].calledNumbers),
+              players: Object.keys(rooms[roomId].players).length
             })
             return
           }
@@ -236,7 +237,8 @@ function initGameHandler(io) {
         socket.emit('spectator_sync', {
           calledNumbers: Array.from(room.calledNumbers),
           currentBall: room.latestNumber || null,
-          status: room.status
+          status: room.status,
+          players: Object.keys(room.players).length
         })
       } catch (err) {
         console.error('Spectator join error:', err)

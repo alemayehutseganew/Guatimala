@@ -1,4 +1,5 @@
 const { Telegraf } = require('telegraf')
+const { Markup } = require('telegraf')
 const db = require('../db')
 const { parseTelebirrSMS, verifyTelebirrReceipt } = require('../services/paymentService')
 
@@ -25,7 +26,8 @@ try {
     { command: 'balance', description: 'Balance' },
     { command: 'deposit', description: 'Deposit' },
     { command: 'withdraw', description: 'Withdraw' },
-    { command: 'help', description: 'How to play the game' }
+    { command: 'help', description: 'How to play the game' },
+    { command: 'register', description: 'Register your phone number' }
   ]).then(() => console.log('✅ Commands registered')).catch(console.error)
 } catch (e) {
   console.error('Bot setup error:', e)
@@ -111,6 +113,15 @@ bot.command('balance', async (ctx) => {
 // /help command
 bot.command('help', (ctx) => {
   ctx.reply('📖 How to Play GOBINGO\n\n1. Open the Mini App.\n2. Select a stake.\n3. Choose a card.\n4. Wait for game start.\n5. Tap numbers when called.\n6. Complete a line and press BINGO!\n\nGood luck!').catch(() => {})
+})
+
+bot.command('register', (ctx) => {
+  return ctx.reply(
+    'Please share your phone number to complete registration:',
+    Markup.keyboard([
+      [Markup.button.contactRequest('📱 Share Contact')]
+    ]).resize().oneTime()
+  )
 })
 
 // /deposit command
@@ -242,6 +253,39 @@ bot.on('text', async (ctx) => {
   } catch (err) {
     console.error('Text Handler Error:', err)
     ctx.reply('❌ Failed to process your request. Please try again.').catch(() => {})
+  }
+})
+
+bot.on('contact', async (ctx) => {
+  try {
+    const contact = ctx.message.contact
+    const telegramId = ctx.from.id
+    const phoneNumber = contact.phone_number
+
+    const updated = await db('users')
+      .where({ telegram_id: telegramId })
+      .update({ phone_number: phoneNumber })
+
+    if (updated) {
+      await ctx.reply(
+        `✅ Phone number saved: ${phoneNumber}\n\nYou can now use the bot normally.`,
+        Markup.removeKeyboard()
+      )
+    } else {
+      await db('users').insert({
+        telegram_id: telegramId,
+        first_name: ctx.from.first_name || 'Player',
+        phone_number: phoneNumber,
+        wallet_balance: 0
+      })
+      await ctx.reply(
+        `✅ Registration complete! Phone number: ${phoneNumber}`,
+        Markup.removeKeyboard()
+      )
+    }
+  } catch (err) {
+    console.error('Contact save error:', err)
+    await ctx.reply('❌ Failed to save your contact. Please try again.')
   }
 })
 
