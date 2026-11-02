@@ -32,12 +32,11 @@ function parseTelebirrSMS(smsText) {
 
 async function verifyTelebirrReceipt(reference) {
   try {
-    const apiKey = process.env.LINKS_ET_API_KEY
+    const apiKey = process.env.LINKS_ET_API_KEY;
     if (!apiKey) {
-      return { success: false, error: 'Verification service not configured.' }
+      console.error('[links.et] API key is missing');
+      return { success: false, error: 'Verification service not configured.' };
     }
-
-    console.log('[verifyTelebirrReceipt] Calling links.et for reference:', reference)
 
     const response = await fetch('https://links.et/api/verify', {
       method: 'POST',
@@ -46,58 +45,63 @@ async function verifyTelebirrReceipt(reference) {
         'x-api-key': apiKey
       },
       body: JSON.stringify({
-        reference: reference
+        reference: reference // e.g., "DK23KZROXJ"
       })
-    })
+    });
 
-    const data = await response.json()
-    console.log('[verifyTelebirrReceipt] links.et response status:', response.status)
+    const data = await response.json();
 
     if (!data.ok) {
-      return {
-        success: false,
-        error: data.error || data.message || 'Receipt not found on Telebirr servers.'
-      }
+      return { 
+        success: false, 
+        error: data.error || 'Receipt not found or invalid.' 
+      };
     }
 
-    const receipt = data.receipt || {}
+    const receipt = data.receipt || {};
 
-    if (receipt.source && receipt.source !== 'telebirr-html') {
-      return { success: false, error: 'This is not a Telebirr receipt.' }
+    if (receipt.source !== 'telebirr-html') {
+      return { success: false, error: 'This is not a valid Telebirr receipt.' };
     }
 
-    const amount = parseFloat(receipt.totalPaid || receipt.amount || receipt.settledAmount)
-    if (isNaN(amount) || amount <= 0) {
-      return { success: false, error: 'Invalid amount on receipt.' }
+    const amountString = receipt.settledAmount || receipt.totalPaidAmount;
+    const amountMatch = String(amountString).match(/([0-9.]+)/);
+    const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
+
+    if (amount <= 0) {
+      return { success: false, error: 'Could not extract a valid amount from the receipt.' };
     }
 
-    const OUR_NAME = 'ALEMAYEHU TSEGANEW'
-    const receiverName = receipt.creditedPartyName || receipt.receiverName || ''
-    const receiverNumber = receipt.creditedPartyNumber || receipt.receiverAccount || ''
-
-    if (receiverName && !receiverName.toUpperCase().includes(OUR_NAME)) {
-      return {
-        success: false,
-        error: `Receipt was sent to ${receiverName}, not to our platform account.`
-      }
+    const OUR_RECEIVER_NAME = 'ALEMAYEHU TSEGANEW';
+    const receiverName = receipt.creditedPartyName || '';
+    if (receiverName && !receiverName.toUpperCase().includes(OUR_RECEIVER_NAME)) {
+      return { 
+        success: false, 
+        error: `Receipt was sent to ${receiverName}, not to our platform account.` 
+      };
     }
 
-    const status = receipt.transactionStatus || receipt.status || ''
-    if (status && status.toLowerCase() !== 'completed' && status.toLowerCase() !== 'success') {
-      return { success: false, error: `Transaction status is "${status}", not completed.` }
+    if (receipt.transactionStatus && receipt.transactionStatus !== 'Completed') {
+      return { 
+        success: false, 
+        error: `Transaction status is "${receipt.transactionStatus}", not completed.` 
+      };
     }
 
     return {
       success: true,
       amount: amount,
       payerName: receipt.payerName || 'Unknown',
-      receiverName: receiverName || OUR_NAME,
-      transactionId: receipt.receiptNo || receipt.reference || reference,
+      receiverName: receiverName,
+      transactionId: receipt.receiptNo || reference,
       status: 'Completed'
-    }
+    };
   } catch (err) {
-    console.error('links.et verification error:', err.message)
-    return { success: false, error: 'Unable to reach verification service. Please try again later.' }
+    console.error('[links.et] Verification error:', err.message);
+    return { 
+      success: false, 
+      error: 'Unable to reach verification service. Please try again later.' 
+    };
   }
 }
 
