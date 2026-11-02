@@ -94,135 +94,93 @@ export default function Lobby() {
   }
 
 
-   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364] text-white font-sans flex flex-col relative overflow-hidden">
+  return (
+  <div className="min-h-screen bg-gradient-to-b from-[#0f2027] via-[#203a43] to-[#2c5364] text-white font-sans flex flex-col relative overflow-hidden">
+    
+    {/* Decorative background glow */}
+    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-yellow-500/20 rounded-full blur-[120px] pointer-events-none"></div>
+
+    {/* Top Navigation Bar */}
+    <div className="relative z-10 flex items-center justify-between px-4 py-4">
+      <button className="p-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 hover:bg-white/20 transition-all">
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
       
-      {/* Decorative background glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-yellow-500/20 rounded-full blur-[120px] pointer-events-none"></div>
-
-      {/* Top Navigation Bar */}
-      <div className="relative z-10 flex items-center justify-between px-4 py-4">
+      <div className="flex items-center gap-3">
         <button 
-          onClick={() => setIsMenuOpen(true)}
-          className="p-2 bg-white/10 backdrop-blur-md rounded-xl border border-white/10 hover:bg-white/20 transition-all"
+          onClick={toggleLanguage}
+          className="px-3 py-1.5 bg-white/10 backdrop-blur-md text-white text-xs font-bold rounded-full border border-white/10 hover:bg-white/20 transition-all"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
+          {i18n.language === 'en' ? 'AM' : 'EN'}
         </button>
-        
-        <div className="flex items-center gap-3">
-          <button 
-            onClick={toggleLanguage}
-            className="px-3 py-1.5 bg-white/10 backdrop-blur-md text-white text-xs font-bold rounded-full border border-white/10 hover:bg-white/20 transition-all"
-          >
-            {i18n.language === 'en' ? 'AM' : 'EN'}
-          </button>
-          <div 
-            onClick={() => navigate('/wallet')}
-            className="flex items-center gap-2 bg-white text-[#0f2027] rounded-full px-4 py-1.5 font-extrabold shadow-lg shadow-yellow-500/20 cursor-pointer hover:scale-105 transition-transform"
-          >
-            <span className="text-green-600 text-lg">₿</span>
-            <span>ETB {walletBalance.toFixed(2)}</span>
-          </div>
+        <div 
+  onClick={() => navigate('/wallet')}
+  className="flex items-center gap-2 bg-white text-[#0f2027] rounded-full px-4 py-1.5 font-extrabold shadow-lg shadow-yellow-500/20 cursor-pointer hover:scale-105 transition-transform"
+>
+          <span className="text-green-600 text-lg">₿</span>
+          <span>ETB {walletBalance.toFixed(2)}</span>
         </div>
       </div>
-
-      {/* Header */}
-      <div className="relative z-10 text-center mt-6 mb-10 px-4">
-        <h1 className="text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 drop-shadow-lg">
-          GOBINGO
-        </h1>
-        <p className="text-gray-400 font-medium mt-2 tracking-widest uppercase text-xs">
-          Play • Win • Repeat
-        </p>
-      </div>
-
-      {/* Main Content */}
-      <div className="relative z-10 flex-1 px-4 pb-10">
-        <h2 className="text-center text-xl font-bold text-white mb-6">
-          {t('chooseStake')}
-        </h2>
-
-        <div className="flex flex-col gap-4 max-w-md mx-auto">
-          {stakes.map((stake, idx) => (
-            <div 
-              key={stake} 
-              className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center justify-between shadow-2xl hover:bg-white/10 transition-all group overflow-hidden"
-            >
-              {/* Bonus Ribbon (Only for first two) */}
-              {idx < 2 && (
-                <div className="absolute top-0 right-0 bg-gradient-to-r from-yellow-400 to-orange-500 text-[#0f2027] text-[10px] font-black px-4 py-1 rounded-bl-xl shadow-lg">
-                  BONUS
-                </div>
-              )}
-
-              {/* Left side: Stake Value */}
-              <div className="flex flex-col">
-                <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Stake</span>
-                <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
-                  {stake} <span className="text-sm">ETB</span>
-                </span>
-              </div>
-
-              {/* Right side: Join Button */}
-              <button
-                onClick={() => handleJoin(stake)}
-                className="bg-gradient-to-r from-yellow-400 to-orange-500 text-[#0f2027] font-black text-lg px-6 py-3 rounded-xl shadow-lg shadow-orange-500/30 group-hover:scale-105 active:scale-95 transition-all"
-              >
-                JOIN
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Bottom Decorative Element */}
-      <div className="relative z-10 text-center pb-6">
-        <p className="text-xs text-gray-500">Powered by Telebirr • Secure Payments</p>
-      </div>
-
-      {/* Slide-out Menu Drawer */}
-      {isMenuOpen && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex" onClick={() => setIsMenuOpen(false)}>
-          <div 
-            className="w-72 bg-[#0f2027] h-full p-6 flex flex-col shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-xl font-black text-yellow-400">Menu</h2>
-              <button onClick={() => setIsMenuOpen(false)} className="text-white text-2xl">&times;</button>
-            </div>
-
-            <nav className="flex flex-col gap-4">
-              <button onClick={() => { setIsMenuOpen(false); navigate('/wallet'); }} className="text-left text-white font-bold text-lg hover:text-yellow-400 transition-colors">
-                💰 My Wallet
-              </button>
-              <button onClick={() => { setIsMenuOpen(false); navigate('/history'); }} className="text-left text-white font-bold text-lg hover:text-yellow-400 transition-colors">
-                📜 Game History
-              </button>
-              <button onClick={() => { setIsMenuOpen(false); navigate('/leaderboard'); }} className="text-left text-white font-bold text-lg hover:text-yellow-400 transition-colors">
-                🏆 Leaderboard
-              </button>
-              <button onClick={() => { setIsMenuOpen(false); navigate('/settings'); }} className="text-left text-white font-bold text-lg hover:text-yellow-400 transition-colors">
-                ⚙️ Settings
-              </button>
-            </nav>
-
-            <div className="mt-auto pt-6 border-t border-white/10">
-              <button 
-                onClick={() => {
-                  localStorage.clear();
-                  window.location.reload();
-                }} 
-                className="w-full bg-red-600 text-white font-bold py-3 rounded-xl"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
-  );
-};
+
+    {/* Header */}
+    <div className="relative z-10 text-center mt-6 mb-10 px-4">
+      <h1 className="text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 drop-shadow-lg">
+        GOBINGO
+      </h1>
+      <p className="text-gray-400 font-medium mt-2 tracking-widest uppercase text-xs">
+        Play • Win • Repeat
+      </p>
+    </div>
+
+    {/* Main Content */}
+    <div className="relative z-10 flex-1 px-4 pb-10">
+      <h2 className="text-center text-xl font-bold text-white mb-6">
+        {t('chooseStake')}
+      </h2>
+
+      <div className="flex flex-col gap-4 max-w-md mx-auto">
+        {stakes.map((stake, idx) => (
+          <div 
+            key={stake} 
+            className="relative bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center justify-between shadow-2xl hover:bg-white/10 transition-all group overflow-hidden"
+          >
+            {/* Bonus Ribbon (Only for first two) */}
+            {idx < 2 && (
+              <div className="absolute top-0 right-0 bg-gradient-to-r from-yellow-400 to-orange-500 text-[#0f2027] text-[10px] font-black px-4 py-1 rounded-bl-xl shadow-lg">
+                BONUS
+              </div>
+            )}
+
+            {/* Left side: Stake Value */}
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Stake</span>
+              <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
+                {stake} <span className="text-sm">ETB</span>
+              </span>
+            </div>
+
+            {/* Right side: Join Button */}
+            <button
+              onClick={() => handleJoin(stake)}
+              className="bg-gradient-to-r from-yellow-400 to-orange-500 text-[#0f2027] font-black text-lg px-6 py-3 rounded-xl shadow-lg shadow-orange-500/30 group-hover:scale-105 active:scale-95 transition-all"
+            >
+              JOIN
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Bottom Decorative Element */}
+    <div className="relative z-10 text-center pb-6">
+      <p className="text-xs text-gray-500">Powered by Telebirr • Secure Payments</p>
+    </div>
+  </div>
+
+
+
+);
+}
