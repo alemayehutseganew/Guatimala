@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useLanguage } from '../LanguageContext'
+import { API_BASE } from '../services/api'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 const stakes = [10, 50, 100]
 
 const AMHARIC_INSTRUCTIONS = `እንኳን ወደ ጎቢንጎ በደህና መጡ!
