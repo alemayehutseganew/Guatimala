@@ -305,13 +305,15 @@ const GameScreen = () => {
 
           <div className="flex flex-row gap-2 flex-1">
             <div className="w-1/2 flex flex-col gap-4">
-              <div className="w-full h-40 bg-white border-4 border-red-600 rounded-lg flex items-center justify-center shadow-inner">
+              {/* Large Ball Area */}
+              <div className="w-full h-40 flex items-center justify-center mb-4">
                 {countdown !== null ? (
-                  <span className="text-7xl font-bold text-[#112A46]">{countdown}</span>
+                  <span className="text-7xl font-bold text-white">{countdown}</span>
                 ) : currentBall ? (
-                  <div className={`w-32 h-32 rounded-full border-8 flex flex-col items-center justify-center shadow-xl ${getBallColor(currentBall.letter)}`}>
-                    <span className="text-2xl font-bold text-white mt-1 ibm-plex-mono-bold-italic">{currentBall.letter}</span>
-                    <span className="text-6xl font-bold text-white">{currentBall.number}</span>
+                  <div className={`w-40 h-40 rounded-full border-8 flex items-center justify-center shadow-2xl ${getBallColor(currentBall.letter)}`}>
+                    <span className="text-5xl font-black text-white">
+                      {currentBall.letter}-{currentBall.number}
+                    </span>
                   </div>
                 ) : (
                   <span className="text-gray-400 font-bold">Waiting for game...</span>
@@ -335,7 +337,7 @@ const GameScreen = () => {
                         const num = rowIndex + 1 + (colIndex * 15);
                         const isCalled = calledNumbers.includes(num);
                         return (
-                          <div key={num} className={`text-center text-sm py-1.5 rounded ${isCalled ? 'bg-red-500 text-white font-bold' : 'bg-[#1e3a5f] text-white'}`}>{num}</div>
+                          <div key={num} className={`text-center text-sm py-1.5 rounded ${isCalled ? 'bg-yellow-400 text-black font-bold' : 'bg-[#1e3a5f] text-white'}`}>{num}</div>
                         );
                       })}
                     </Fragment>
