@@ -198,7 +198,11 @@ function initGameHandler(io) {
                     const playerSocketId = Object.keys(rooms[roomId].players).find(id => String(rooms[roomId].players[id].userId) === String(p.user_id))
                     if (playerSocketId) {
                       io.to(playerSocketId).emit('insufficient_funds', { message: 'Insufficient balance. Please deposit funds.' })
+                      io.in(playerSocketId).socketsLeave(roomId)
+                      delete rooms[roomId].players[playerSocketId]
                     }
+                    await db('room_participants').where({ room_id: roomId, user_id: p.user_id }).del()
+                    await db('room_card_selections').where({ room_id: roomId, user_id: p.user_id }).del()
                     break
                   }
                 }
