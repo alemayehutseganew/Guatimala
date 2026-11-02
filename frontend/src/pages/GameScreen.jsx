@@ -68,6 +68,11 @@ const GameScreen = () => {
   useEffect(() => {
     if (!userId) return;
 
+    const handleSpectatorSync = (data) => {
+      setSpectatorNumbers(data.calledNumbers || [])
+      setSpectatorBall(data.currentBall || null)
+    }
+
     const handleJoin = () => {
       socket.emit('join_room', { roomId, userId, stake });
       socket.emit('get_my_cards', { roomId, userId });
@@ -84,7 +89,14 @@ const GameScreen = () => {
       setTickets(data.tickets || 0)
       setReadyPlayers(data.readyPlayers || 0)
     })
-    socket.on('game_in_progress', () => setGameInProgress(true))
+    socket.on('game_in_progress', (data = {}) => {
+      setGameInProgress(true)
+      setIsSpectator(true)
+      setSpectatorNumbers(data.calledNumbers || [])
+      setSpectatorBall(data.currentBall || null)
+      socket.emit('join_as_spectator', { roomId, userId })
+    })
+    socket.on('spectator_sync', handleSpectatorSync)
     socket.on('countdown_tick', (data) => setCountdown(data.timeLeft));
     socket.on('my_cards', (data) => {
       if (data.cards && data.cards.length > 0) setCardsData(data.cards);
@@ -160,6 +172,7 @@ const GameScreen = () => {
       socket.off('game_over');
       socket.off('bingo_result');
       socket.off('game_in_progress');
+      socket.off('spectator_sync', handleSpectatorSync);
     };
   }, [socket, roomId, userId, stake, soundEnabled, isSpectator]);
 
@@ -168,12 +181,13 @@ const GameScreen = () => {
     if (!socket || !activeRoomId) return;
     setIsSpectator(true);
     socket.emit('join_as_spectator', { roomId: activeRoomId, userId });
-    socket.on('spectator_sync', (data) => {
+    const handleSpectatorSync = (data) => {
       setSpectatorNumbers(data.calledNumbers || []);
       setSpectatorBall(data.currentBall || null);
-    });
+    };
+    socket.on('spectator_sync', handleSpectatorSync);
     return () => {
-      socket.off('spectator_sync');
+      socket.off('spectator_sync', handleSpectatorSync);
     };
   }, [socket, activeRoomId, userId]);
 
@@ -205,7 +219,7 @@ const GameScreen = () => {
     return (
       <div className="min-h-screen bg-[#1e3a5f] text-white p-4 flex flex-col items-center">
         <div className="w-full max-w-md bg-yellow-500 text-[#112A46] font-bold text-center py-2 rounded-t-xl flex justify-center items-center gap-2 shadow-lg">
-          <span className="animate-pulse">👀</span> LIVE SPECTATOR MODE
+          <span className="animate-pulse">👀</span> {gameInProgress ? 'GAME IN PROGRESS · SPECTATOR MODE' : 'LIVE SPECTATOR MODE'}
         </div>
         <div className="w-full max-w-md bg-[#112A46] p-6 rounded-b-xl shadow-2xl flex flex-col items-center border border-blue-900">
           <div className="mb-6">
@@ -239,19 +253,6 @@ const GameScreen = () => {
           <p className="mt-6 text-center text-sm text-yellow-400 font-bold">
             Waiting for the current game to finish...<br/>Get ready to join the next round!
           </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (gameInProgress) {
-    return (
-      <div className="min-h-screen bg-[#1e3a5f] flex flex-col items-center justify-center p-6 text-center">
-        <div className="bg-[#112A46] p-8 rounded-2xl shadow-2xl max-w-sm w-full border border-blue-800">
-          <div className="text-6xl mb-4">⏳</div>
-          <h2 className="text-2xl font-bold text-white mb-2">Game in Progress</h2>
-          <p className="text-gray-300 mb-8">Please wait for the current game to finish.</p>
-          <button onClick={() => window.location.href = '/'} className="w-full bg-yellow-500 text-[#112A46] font-bold py-3 rounded-xl shadow-lg">Back to Lobby</button>
         </div>
       </div>
     );

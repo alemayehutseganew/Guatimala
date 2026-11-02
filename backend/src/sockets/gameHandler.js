@@ -63,10 +63,32 @@ function initGameHandler(io) {
   io.on('connection', (socket) => {
     socket.on('join_room', async ({ roomId, userId, stake }) => {
       try {
+        const room = rooms[roomId]
+        let user = null
+
+        if (room && (room.status === 'PLAYING' || room.status === 'COUNTDOWN') && userId) {
+          user = await db('users').where({ id: userId }).first()
+          if (!user) user = await db('users').where({ telegram_id: userId }).first()
+
+          if (user) {
+            const participant = await db('room_participants')
+              .where({ room_id: roomId, user_id: user.id })
+              .first()
+
+            if (!participant) {
+              console.log(`[Game] User ${user.id} tried to join in-progress game ${roomId}`)
+              return socket.emit('game_in_progress', {
+                message: 'A game is in progress. Please wait for the next round.',
+                currentBall: room.latestNumber || null,
+                calledNumbers: Array.from(room.calledNumbers)
+              })
+            }
+          }
+        }
+
         console.log(`[Game] join_room received: roomId=${roomId}, userId=${userId}`)
 
-        let user = null
-        if (userId) {
+        if (!user && userId) {
           user = await db('users').where({ id: userId }).first()
           if (!user) user = await db('users').where({ telegram_id: userId }).first()
         }
