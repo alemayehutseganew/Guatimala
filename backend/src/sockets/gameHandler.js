@@ -30,12 +30,17 @@ async function startCountdown(io, roomId) {
     if (timeLeft <= 0) {
       clearInterval(countdownInterval)
       try {
-        const paymentResult = await db.transaction(async (trx) => {
+        const settlement = await db.transaction(async (trx) => {
           const participants = await trx('room_participants')
             .where({ room_id: roomId })
             .forUpdate()
 
-          if (participants.length < 2) return { error: 'NOT_ENOUGH_PLAYERS' }
+          if (participants.length < 2) {
+            return { success: false, error: 'NOT_ENOUGH_PLAYERS', poorPlayers: [] }
+          }
+
+          const validPlayers = []
+          const poorPlayers = []
 
           for (const participant of participants) {
             const user = await trx('users')
@@ -43,49 +48,67 @@ async function startCountdown(io, roomId) {
               .forUpdate()
               .first()
 
-            if (!user || Number(user.wallet_balance) < room.stake) {
-              return { insufficientUserId: participant.user_id }
+            if (user && Number(user.wallet_balance) >= room.stake) {
+              validPlayers.push({ participant, user })
+            } else {
+              poorPlayers.push(participant)
             }
           }
 
-          for (const participant of participants) {
-            await trx('users').where({ id: participant.user_id }).decrement('wallet_balance', room.stake)
+          for (const poorPlayer of poorPlayers) {
+            await trx('room_participants')
+              .where({ room_id: roomId, user_id: poorPlayer.user_id })
+              .del()
+            await trx('room_card_selections')
+              .where({ room_id: roomId, user_id: poorPlayer.user_id })
+              .del()
+          }
+
+          if (validPlayers.length < 2) {
+            return { success: false, error: 'NOT_ENOUGH_VALID_PLAYERS', poorPlayers }
+          }
+
+          for (const validPlayer of validPlayers) {
+            await trx('users').where({ id: validPlayer.user.id }).decrement('wallet_balance', room.stake)
             await trx('financial_ledger').insert({
-              user_id: participant.user_id,
+              user_id: validPlayer.user.id,
               amount: -room.stake,
               type: 'ENTRY_FEE'
             })
           }
           await trx('game_rooms').where({ id: roomId }).update({ status: 'PLAYING' })
 
-          return { success: true }
+          return { success: true, validPlayerCount: validPlayers.length, poorPlayers }
         })
 
-        if (!paymentResult.success) {
-          if (paymentResult.insufficientUserId) {
-            const playerSocketId = Object.keys(room.players).find((id) => (
-              String(room.players[id].userId) === String(paymentResult.insufficientUserId)
-            ))
-            if (playerSocketId) {
-              io.to(playerSocketId).emit('insufficient_funds', {
-                message: 'Insufficient balance. Please deposit funds.'
-              })
+        for (const poorPlayer of settlement.poorPlayers) {
+          const playerSocketId = Object.keys(room.players).find((id) => (
+            String(room.players[id].userId) === String(poorPlayer.user_id)
+          ))
+          if (playerSocketId) {
+            io.to(playerSocketId).emit('insufficient_funds', {
+              message: 'You do not have enough balance. Please deposit funds.'
+            })
+            try {
               await io.in(playerSocketId).socketsLeave(roomId)
-              delete room.players[playerSocketId]
+            } catch (err) {
+              console.error('[Game] Failed to remove underfunded socket:', err)
             }
-            await db('room_participants')
-              .where({ room_id: roomId, user_id: paymentResult.insufficientUserId })
-              .del()
-            await db('room_card_selections')
-              .where({ room_id: roomId, user_id: paymentResult.insufficientUserId })
-              .del()
+            delete room.players[playerSocketId]
           }
+        }
 
+        io.to(roomId).emit('room_update', {
+          players: Object.keys(room.players).length,
+          stake: room.stake
+        })
+
+        if (!settlement.success) {
           room.status = 'WAITING'
           await db('game_rooms').where({ id: roomId }).update({ status: 'WAITING' })
-          const message = paymentResult.error === 'NOT_ENOUGH_PLAYERS'
+          const message = settlement.error === 'NOT_ENOUGH_PLAYERS'
             ? 'Not enough players. Game cancelled.'
-            : 'A player has insufficient funds. Game cancelled.'
+            : 'Not enough players with sufficient balance. Game cancelled.'
           io.to(roomId).emit('countdown_tick', { timeLeft: null })
           io.to(roomId).emit('game_aborted', { message })
           return
