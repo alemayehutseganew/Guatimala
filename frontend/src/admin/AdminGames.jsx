@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 export default function AdminGames() {
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -8,7 +10,7 @@ export default function AdminGames() {
     const fetchGames = async () => {
       try {
         const token = localStorage.getItem('adminToken');
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/games`, {
+        const res = await fetch(`${API_BASE}/api/admin/games`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();

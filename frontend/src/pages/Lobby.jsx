@@ -204,14 +204,6 @@ export default function Lobby() {
           <span className="text-2xl group-hover:scale-110 transition-transform">💰</span> 
           <span>My Wallet</span>
         </button>
-        <button onClick={() => { setIsMenuOpen(false); navigate('/history'); }} className="flex items-center gap-3 w-full text-left text-white font-bold text-base p-3 rounded-xl hover:bg-white/10 transition-all group">
-          <span className="text-2xl group-hover:scale-110 transition-transform">📜</span> 
-          <span>Game History</span>
-        </button>
-        <button onClick={() => { setIsMenuOpen(false); navigate('/leaderboard'); }} className="flex items-center gap-3 w-full text-left text-white font-bold text-base p-3 rounded-xl hover:bg-white/10 transition-all group">
-          <span className="text-2xl group-hover:scale-110 transition-transform">🏆</span> 
-          <span>Leaderboard</span>
-        </button>
         <button onClick={() => { setIsMenuOpen(false); setHelpOpen(true); }} className="flex items-center gap-3 w-full text-left text-white font-bold text-base p-3 rounded-xl hover:bg-white/10 transition-all group">
           <span className="text-2xl group-hover:scale-110 transition-transform">❓</span> 
           <span>Help & Rules</span>

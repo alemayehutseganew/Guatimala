@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 export default function AdminPayments() {
   const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -9,11 +11,16 @@ export default function AdminPayments() {
     const fetchPayments = async () => {
       try {
         const token = localStorage.getItem('adminToken');
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/payments`, {
+        const res = await fetch(`${API_BASE}/api/admin/payments`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
-        if (data.transactions) setTransactions(data.transactions);
+        if (data.transactions) {
+          setTransactions(data.transactions.map((transaction) => ({
+            ...transaction,
+            status: transaction.status || 'completed'
+          })));
+        }
       } catch (err) {
         console.error(err);
       } finally {

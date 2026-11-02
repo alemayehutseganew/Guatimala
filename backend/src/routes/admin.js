@@ -59,16 +59,14 @@ router.get('/stats', adminAuth, async (req, res) => {
       .first()
     const activeGames = parseInt(activeGamesResult.count, 10)
 
-    // Total Wagered: sum of stakes across all room participants (each player's entry)
-    const wageredResult = await db('game_rooms')
-      .join('room_participants', 'game_rooms.id', 'room_participants.room_id')
-      .sum('game_rooms.stake_amount as total')
+    const wageredResult = await db('financial_ledger')
+      .where({ type: 'ENTRY_FEE' })
+      .sum(db.raw('ABS(amount) as total'))
       .first()
     const totalWagered = parseFloat(wageredResult.total || 0).toFixed(2)
 
-    // Platform Profit: Total Wagered - Total Payouts (game_win ledger entries)
     const payoutsResult = await db('financial_ledger')
-      .where({ type: 'game_win' })
+      .where({ type: 'WINNING_PAYOUT' })
       .sum('amount as total')
       .first()
     const totalPayouts = parseFloat(payoutsResult.total || 0).toFixed(2)
@@ -91,10 +89,12 @@ router.get('/stats', adminAuth, async (req, res) => {
 router.get('/users', adminAuth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1
-    const limit = parseInt(req.query.limit) || 20
+    const requestedLimit = parseInt(req.query.limit, 10) || 100
+    const limit = Math.min(Math.max(requestedLimit, 1), 100)
     const offset = (page - 1) * limit
     const users = await db('users')
-      .select('id', 'telegram_id', 'first_name', 'wallet_balance', 'created_at')
+      .select('id', 'telegram_id', 'first_name', 'username', 'wallet_balance', 'created_at')
+      .orderBy('wallet_balance', 'desc')
       .orderBy('id', 'desc')
       .limit(limit)
       .offset(offset)

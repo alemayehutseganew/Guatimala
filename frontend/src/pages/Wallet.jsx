@@ -6,7 +6,8 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 export default function Wallet() {
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [balance, setBalance] = useState(0)
+  const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState('')
   const [depositAmount, setDepositAmount] = useState('')
@@ -22,9 +23,37 @@ export default function Wallet() {
       const res = await fetch(`${API_BASE}/api/me`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
-      if (res.ok) setUser(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        setUser(data)
+        setBalance(Number(data.wallet_balance || 0))
+      }
     } catch (e) {}
   }
+
+  useEffect(() => {
+    const storedUserId = localStorage.getItem('dbUserId')
+    if (!storedUserId) {
+      navigate('/')
+      return
+    }
+
+    const fetchBalance = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/wallet/balance?userId=${storedUserId}`)
+        if (res.ok) {
+          const data = await res.json()
+          setBalance(Number(data.balance || 0))
+        }
+      } catch (err) {
+        console.error('Failed to fetch balance:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBalance()
+  }, [navigate])
 
   useEffect(() => {
     loadUser()
@@ -95,7 +124,7 @@ export default function Wallet() {
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 mb-4">
         <p className="text-sm text-gray-300 uppercase font-bold">Balance</p>
         <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-500">
-          ETB {user?.wallet_balance ?? '0.00'}
+          ETB {balance}
         </p>
       </div>
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
@@ -17,7 +19,7 @@ export default function AdminDashboard() {
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem('adminToken');
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/admin/stats`, {
+        const res = await fetch(`${API_BASE}/api/admin/stats`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json();
