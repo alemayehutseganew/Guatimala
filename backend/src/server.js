@@ -14,10 +14,6 @@ const { launch: launchBot } = require('./bot')
 
 const app = express()
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() })
-})
-
 app.use(cors({
   origin: [
     'http://localhost:5173',
@@ -28,7 +24,12 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-telegram-init-data']
 }))
+app.options(/.*/, cors())
 app.use(express.json())
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
 
 app.use('/api/auth', authRoutes)
 app.use('/api/rooms', roomRoutes)
