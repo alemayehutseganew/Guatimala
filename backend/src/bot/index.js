@@ -195,6 +195,7 @@ bot.on('text', async (ctx) => {
         return ctx.reply('❌ User not found. Please open the Mini App first to register.').catch(() => {})
       }
 
+      // *** CRITICAL FIX: No reference_id in financial_ledger ***
       await db.transaction(async (trx) => {
         await trx('payments').insert({
           user_id: user.id,
@@ -203,14 +204,16 @@ bot.on('text', async (ctx) => {
           provider: 'telebirr',
           status: 'pending',
           type: 'deposit',
-          provider_response: { payerName: official.payerName, receiverName: official.receiverName }
+          provider_response: JSON.stringify({ payerName: official.payerName, receiverName: official.receiverName })
         })
+
         await trx('users').where({ id: user.id }).increment('wallet_balance', official.amount)
+
         await trx('financial_ledger').insert({
           user_id: user.id,
           amount: official.amount,
-          type: 'DEPOSIT',
-          reference_id: parsedFromSMS.transactionId
+          type: 'DEPOSIT'
+          // NOTE: reference_id has been REMOVED here to prevent the crash
         })
       })
 
