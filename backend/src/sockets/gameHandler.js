@@ -347,7 +347,10 @@ function initGameHandler(io) {
         
         let winnerName = 'A Player';
         const winnerCount = room.claimedBy.length;
-        const totalPlayers = Object.keys(room.players).length;
+        const participants = await db('room_participants').where({ room_id: roomId });
+        const totalPlayers = participants.length;
+        
+        if (totalPlayers === 0) throw new Error('No players in room');
         const totalPool = room.stake * totalPlayers;
         const platformFee = totalPool * 0.15;
         const netWinnerPool = totalPool - platformFee;
