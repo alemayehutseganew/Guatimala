@@ -128,79 +128,33 @@ function initGameHandler(io) {
   io.on('connection', (socket) => {
     socket.on('join_room', async ({ roomId, userId, stake }) => {
       try {
-        const room = rooms[roomId]
         let user = null
-
-        if (room && room.status === 'PLAYING') {
-          socket.emit('game_in_progress', {
-            message: 'A game is in progress. You are watching as a spectator.',
-            currentBall: room.latestNumber || null,
-            calledNumbers: Array.from(room.calledNumbers)
-          })
-          return
-        }
-
-        if (room && (room.status === 'PLAYING' || room.status === 'COUNTDOWN') && userId) {
-          user = await db('users').where({ id: userId }).first()
-          if (!user) user = await db('users').where({ telegram_id: userId }).first()
-
-          if (user) {
-            const participant = await db('room_participants')
-              .where({ room_id: roomId, user_id: user.id })
-              .first()
-
-            if (!participant) {
-              console.log(`[Game] User ${user.id} tried to join in-progress game ${roomId}`)
-              return socket.emit('game_in_progress', {
-                message: 'A game is in progress. Please wait for the next round.',
-                currentBall: room.latestNumber || null,
-                calledNumbers: Array.from(room.calledNumbers)
-              })
-            }
-          }
-        }
-
-        console.log(`[Game] join_room received: roomId=${roomId}, userId=${userId}`)
-
-        if (!user && userId) {
+        if (userId) {
           user = await db('users').where({ id: userId }).first()
           if (!user) user = await db('users').where({ telegram_id: userId }).first()
         }
-        if (!user) {
-          user = { id: userId || socket.id, first_name: 'Player' }
-        }
+        if (!user) return socket.emit('error', { message: 'User not found' })
 
-        // CHECK IF GAME IS ALREADY IN PROGRESS
-        const dbRoom = await db('game_rooms').where({ id: roomId }).first()
-        if (dbRoom && (dbRoom.status === 'PLAYING' || dbRoom.status === 'COUNTDOWN')) {
+        // 1. SPECTATOR CHECK
+        if (rooms[roomId] && (rooms[roomId].status === 'PLAYING' || rooms[roomId].status === 'COUNTDOWN')) {
           const participant = await db('room_participants').where({ room_id: roomId, user_id: user.id }).first()
           if (!participant) {
-            console.log(`[Game] User ${user.id} tried to join in-progress game ${roomId}`)
-            return socket.emit('game_in_progress', {
-              message: 'A game is currently in progress. Please wait for the next round.'
+            socket.emit('game_in_progress', {
+              message: 'A game is in progress. Please wait for the next round.',
+              currentBall: rooms[roomId].latestNumber || null,
+              calledNumbers: Array.from(rooms[roomId].calledNumbers)
             })
+            return
           }
         }
 
-        if (userId) {
-          const participant = await db('room_participants')
-            .where({ room_id: roomId, user_id: user.id })
-            .first()
-          if (!participant) {
-            console.log(`[SECURITY] User ${user.id} tried to join room ${roomId} without paying`)
-            return socket.emit('error', {
-              message: 'You have not paid to join this room. Please go back to the lobby.'
-            })
-          }
-        }
-
+        // 2. ADD PLAYER
         if (!rooms[roomId]) {
           rooms[roomId] = {
             id: roomId,
             stake: Number(stake) || 10,
             status: 'WAITING',
             players: {},
-            readyPlayers: new Set(),
             calledNumbers: new Set(),
             latestNumber: null,
             intervalId: null
@@ -211,26 +165,93 @@ function initGameHandler(io) {
         socket.join(roomId)
 
         const playerCount = Object.keys(rooms[roomId].players).length
-        console.log(`[Game] Total players in ${roomId}: ${playerCount}`)
+        console.log(`[Game] Player ${user.id} joined. Total players: ${playerCount}`)
 
-        const ticketRow = await db('room_card_selections').where({ room_id: roomId }).count('* as c').first()
-        const ticketCount = Number(ticketRow ? ticketRow.c : 0)
+        io.to(roomId).emit('room_update', { players: playerCount, stake: rooms[roomId].stake })
 
-        io.to(roomId).emit('room_update', {
-          players: playerCount,
-          tickets: ticketCount,
-          readyPlayers: rooms[roomId].readyPlayers.size,
-          stake: rooms[roomId].stake
-        })
-
+        // 3. AUTO-START
         if (rooms[roomId].status === 'WAITING' && playerCount >= 2) {
-          setTimeout(() => {
-            const activeRoom = rooms[roomId]
-            if (activeRoom && activeRoom.status === 'WAITING' && Object.keys(activeRoom.players).length >= 2) {
-              console.log(`[Game] Auto-starting countdown for room ${roomId}`)
-              startCountdown(io, roomId)
+          rooms[roomId].status = 'COUNTDOWN'
+          let timeLeft = 5
+          io.to(roomId).emit('countdown_tick', { timeLeft })
+          
+          const countdownInterval = setInterval(async () => {
+            timeLeft -= 1
+            io.to(roomId).emit('countdown_tick', { timeLeft })
+            
+            if (timeLeft <= 0) {
+              clearInterval(countdownInterval)
+              
+              try {
+                const participants = await db('room_participants').where({ room_id: roomId })
+                if (participants.length < 2) {
+                  rooms[roomId].status = 'WAITING'
+                  io.to(roomId).emit('game_aborted', { message: 'Not enough players.' })
+                  return
+                }
+
+                let allCanPay = true
+                for (const p of participants) {
+                  const u = await db('users').where({ id: p.user_id }).first()
+                  if (!u || Number(u.wallet_balance) < rooms[roomId].stake) {
+                    allCanPay = false
+                    const playerSocketId = Object.keys(rooms[roomId].players).find(id => String(rooms[roomId].players[id].userId) === String(p.user_id))
+                    if (playerSocketId) {
+                      io.to(playerSocketId).emit('insufficient_funds', { message: 'Insufficient balance. Please deposit funds.' })
+                    }
+                    break
+                  }
+                }
+
+                if (!allCanPay) {
+                  rooms[roomId].status = 'WAITING'
+                  io.to(roomId).emit('game_aborted', { message: 'A player has insufficient funds. Game cancelled.' })
+                  return
+                }
+
+                await db.transaction(async (trx) => {
+                  for (const p of participants) {
+                    await trx('users').where({ id: p.user_id }).decrement('wallet_balance', rooms[roomId].stake)
+                    await trx('financial_ledger').insert({ user_id: p.user_id, amount: -rooms[roomId].stake, type: 'ENTRY_FEE' })
+                  }
+                })
+
+                rooms[roomId].status = 'PLAYING'
+                io.to(roomId).emit('game_started')
+
+                if (rooms[roomId].intervalId) clearInterval(rooms[roomId].intervalId)
+                rooms[roomId].intervalId = setInterval(() => {
+                  if (rooms[roomId].status !== 'PLAYING') {
+                    clearInterval(rooms[roomId].intervalId)
+                    return
+                  }
+                  let num
+                  do { num = Math.floor(Math.random() * 75) + 1 } while (rooms[roomId].calledNumbers.has(num))
+                  rooms[roomId].calledNumbers.add(num)
+                  
+                  let letter = 'B'
+                  if (num > 15) letter = 'I'
+                  if (num > 30) letter = 'N'
+                  if (num > 45) letter = 'G'
+                  if (num > 60) letter = 'O'
+                  
+                  rooms[roomId].latestNumber = { number: num, letter }
+                  io.to(roomId).emit('new_number_called', { number: num, letter })
+                  
+                  if (rooms[roomId].calledNumbers.size === 75) {
+                    clearInterval(rooms[roomId].intervalId)
+                    rooms[roomId].status = 'ENDED'
+                    io.to(roomId).emit('game_ended_for_spectators')
+                  }
+                }, 3000)
+
+              } catch (err) {
+                console.error('[Game] Error during start:', err)
+                rooms[roomId].status = 'WAITING'
+                io.to(roomId).emit('game_aborted', { message: 'Server error. Game cancelled.' })
+              }
             }
-          }, 2000)
+          }, 1000)
         }
       } catch (err) {
         console.error('[Game] Join room error:', err)
@@ -388,19 +409,23 @@ function initGameHandler(io) {
           payout: payoutPerWinner,
           winnerName: winnerName
         });
+        io.to(roomId).emit('game_ended_for_spectators');
 
         // Reset room after 5 seconds
         setTimeout(() => {
-          room.status = 'WAITING';
-          room.claimedBy = [];
-          room.calledNumbers = new Set();
-          room.players = {};
+          if (rooms[roomId]) {
+            rooms[roomId].status = 'WAITING';
+            rooms[roomId].claimedBy = [];
+            rooms[roomId].calledNumbers = new Set();
+            rooms[roomId].players = {};
+          }
         }, 5000);
 
       } catch (err) {
         console.error('[Claim] Payout Error:', err);
         room.status = 'ENDED';
         io.to(roomId).emit('game_over', { winnerIds: room.claimedBy, payout: 0, winnerName: 'Error' });
+        io.to(roomId).emit('game_ended_for_spectators');
       }
     }, 3000);
 
