@@ -93,7 +93,7 @@ export default function AdminPayments() {
                         <button
                           onClick={async () => {
                             const token = localStorage.getItem('adminToken');
-                            await fetch(`${import.meta.env.VITE_API_URL}/api/admin/payments/${tx.id}/approve`, {
+                            await fetch(`${API_BASE}/api/admin/payments/${tx.payment_id}/approve`, {
                               method: 'POST',
                               headers: { 'Authorization': `Bearer ${token}` }
                             });
@@ -106,7 +106,7 @@ export default function AdminPayments() {
                         <button
                           onClick={async () => {
                             const token = localStorage.getItem('adminToken');
-                            await fetch(`${import.meta.env.VITE_API_URL}/api/admin/payments/${tx.id}/reject`, {
+                            await fetch(`${API_BASE}/api/admin/payments/${tx.payment_id}/reject`, {
                               method: 'POST',
                               headers: { 'Authorization': `Bearer ${token}` }
                             });

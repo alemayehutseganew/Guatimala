@@ -174,7 +174,7 @@ router.get('/games', adminAuth, async (req, res) => {
 
 router.get('/payments', adminAuth, async (req, res) => {
   try {
-    const transactions = await db('financial_ledger')
+    const ledgerTransactions = await db('financial_ledger')
       .join('users', 'financial_ledger.user_id', 'users.id')
       .select(
         'financial_ledger.id',
@@ -189,6 +189,31 @@ router.get('/payments', adminAuth, async (req, res) => {
       .orderBy('financial_ledger.created_at', 'desc')
       .limit(200)
 
+    const pendingPayments = await db('payments')
+      .join('users', 'payments.user_id', 'users.id')
+      .where({ 'payments.status': 'pending' })
+      .select(
+        'payments.id as payment_id',
+        'users.first_name',
+        'users.username',
+        'users.telegram_id',
+        'payments.amount',
+        'payments.type',
+        'payments.transaction_reference as reference_id',
+        'payments.created_at'
+      )
+      .orderBy('payments.created_at', 'desc')
+
+    const transactions = [
+      ...pendingPayments.map((payment) => ({
+        ...payment,
+        id: `pending-${payment.payment_id}`,
+        type: payment.type === 'deposit' ? 'DEPOSIT' : 'WITHDRAWAL',
+        status: 'pending',
+      })),
+      ...ledgerTransactions.map((transaction) => ({ ...transaction, status: 'completed' })),
+    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 200)
+
     res.json({ transactions })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -197,18 +222,31 @@ router.get('/payments', adminAuth, async (req, res) => {
 
 router.post('/payments/:id/approve', adminAuth, async (req, res) => {
   try {
-    const p = await db('payments').where({ id: req.params.id }).first()
-    if (!p) return res.status(404).json({ error: 'Not found' })
-    if (p.status !== 'pending') return res.status(400).json({ error: 'Payment already processed' })
-
-    const user = await db('users').where({ id: p.user_id }).first()
-    if (!user) return res.status(404).json({ error: 'User not found' })
-
+    let paymentType
     await db.transaction(async (trx) => {
+      const p = await trx('payments').where({ id: req.params.id }).forUpdate().first()
+      if (!p) {
+        const err = new Error('Not found')
+        err.statusCode = 404
+        throw err
+      }
+      if (p.status !== 'pending') {
+        const err = new Error('Payment already processed')
+        err.statusCode = 400
+        throw err
+      }
+
+      const user = await trx('users').where({ id: p.user_id }).first()
+      if (!user) {
+        const err = new Error('User not found')
+        err.statusCode = 404
+        throw err
+      }
+
       if (p.type === 'deposit') {
         await trx('users').where({ id: p.user_id }).increment('wallet_balance', p.amount)
       } else if (p.type === 'withdrawal') {
-        const current = await trx('users').where({ id: p.user_id }).first()
+        const current = await trx('users').where({ id: p.user_id }).forUpdate().first()
         if (!current || Number(current.wallet_balance || 0) < Number(p.amount)) {
           const err = new Error('INSUFFICIENT_BALANCE')
           err.code = 'INSUFFICIENT_BALANCE'
@@ -229,26 +267,41 @@ router.post('/payments/:id/approve', adminAuth, async (req, res) => {
           created_at: new Date(),
         })
       }
+      paymentType = p.type
     })
 
-    res.json({ success: true, message: `${p.type} approved` })
+    res.json({ success: true, message: `${paymentType} approved` })
   } catch (err) {
     if (err.code === 'INSUFFICIENT_BALANCE') {
       return res.status(400).json({ error: 'User has insufficient balance for withdrawal' })
     }
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message })
     res.status(500).json({ error: err.message })
   }
 })
 
 router.post('/payments/:id/reject', adminAuth, async (req, res) => {
   try {
-    const p = await db('payments').where({ id: req.params.id }).first()
-    if (!p) return res.status(404).json({ error: 'Not found' })
-    if (p.status !== 'pending') return res.status(400).json({ error: 'Payment already processed' })
+    let paymentType
+    await db.transaction(async (trx) => {
+      const p = await trx('payments').where({ id: req.params.id }).forUpdate().first()
+      if (!p) {
+        const err = new Error('Not found')
+        err.statusCode = 404
+        throw err
+      }
+      if (p.status !== 'pending') {
+        const err = new Error('Payment already processed')
+        err.statusCode = 400
+        throw err
+      }
 
-    await db('payments').where({ id: p.id }).update({ status: 'rejected' })
-    res.json({ success: true, message: `${p.type} rejected` })
+      await trx('payments').where({ id: p.id }).update({ status: 'rejected' })
+      paymentType = p.type
+    })
+    res.json({ success: true, message: `${paymentType} rejected` })
   } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ error: err.message })
     res.status(500).json({ error: err.message })
   }
 })

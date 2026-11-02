@@ -206,19 +206,9 @@ bot.on('text', async (ctx) => {
           type: 'deposit',
           provider_response: JSON.stringify({ payerName: official.payerName, receiverName: official.receiverName })
         })
-
-        await trx('users').where({ id: user.id }).increment('wallet_balance', official.amount)
-
-        await trx('financial_ledger').insert({
-          user_id: user.id,
-          amount: official.amount,
-          type: 'DEPOSIT'
-          // NOTE: reference_id has been REMOVED here to prevent the crash
-        })
       })
 
-      const updatedUser = await db('users').where({ id: user.id }).first()
-      ctx.reply(`✅ Deposit of ETB ${official.amount.toFixed(2)} verified and added to your wallet!\n\nYour new balance is ETB ${Number(updatedUser.wallet_balance).toFixed(2)}.`).catch(() => {})
+      ctx.reply(`✅ Receipt for ETB ${official.amount.toFixed(2)} verified and submitted for admin approval. Your wallet will be credited after approval.`).catch(() => {})
       delete userStates[ctx.from.id]
       return
     }

@@ -55,7 +55,6 @@ const GameScreen = () => {
       })
       .catch(err => console.error("Failed to fetch cards:", err));
   }, [roomId, userId]);
-
   useEffect(() => {
     if (!userId) return;
 
@@ -110,6 +109,8 @@ const GameScreen = () => {
       }
     });
     socket.on('game_over', (data) => {
+      if (isSpectator) return
+
       const myId = String(userId);
       const isWinner = data.winnerIds?.some(id => String(id) === myId);
       if (isWinner) {
@@ -122,9 +123,12 @@ const GameScreen = () => {
       setTimeout(() => { setGameResult(null); navigate('/'); }, 5000);
     });
     socket.on('game_ended_for_spectators', () => {
+      if (!isSpectator) return
+
       setIsSpectator(false);
       setSpectatorNumbers([]);
       setSpectatorBall(null);
+      sessionStorage.removeItem('activeRoomId');
       navigate('/');
     });
     socket.on('bingo_result', (data) => {
